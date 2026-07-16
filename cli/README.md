@@ -1,125 +1,64 @@
-# 9Router - FREE AI Router & Token Saver
+# Sembilan Router
 
-**Never stop coding. Save 20-40% tokens with RTK + auto-fallback to FREE & cheap AI models.**
+> A **text-focused** personal fork of [9Router](https://github.com/decolua/9router) — a local AI routing gateway.
 
-**Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 40+ AI Providers & 100+ Models.**
+[![npm version](https://img.shields.io/npm/v/@rcdevgames/sembilan-router.svg)](https://www.npmjs.com/package/@rcdevgames/sembilan-router)
+[![License](https://img.shields.io/npm/l/@rcdevgames/sembilan-router.svg)](https://github.com/rcdevgames/sembilan-router/blob/deploy/LICENSE)
 
-[![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router)
-[![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router)
-[![Docker Pulls](https://img.shields.io/docker/pulls/decolua/9router.svg?logo=docker&label=Docker%20pulls)](https://hub.docker.com/r/decolua/9router)
-[![GHCR](https://img.shields.io/badge/GHCR-decolua%2F9router-blue?logo=github)](https://github.com/decolua/9router/pkgs/container/9router)
-[![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
+`@rcdevgames/sembilan-router` is a local gateway that exposes one OpenAI-compatible endpoint (`/v1`) and routes your **text / chat** traffic across upstream providers — with combos (fallback chains), multi-account rotation, automatic token refresh, RTK token compression, and usage tracking.
 
-<a href="https://trendshift.io/repositories/22628" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22628" alt="decolua%2F9router | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-[🌐 Website](https://9router.com) • [📖 Full Docs](https://github.com/decolua/9router)
+> ⚠️ This is **not** the upstream project. It is a fork tailored for **text-only** use. For the full-featured original (image, audio, video, embeddings, web tools, cloud sync, …) see [decolua/9router](https://github.com/decolua/9router).
 
 ---
 
-## 🤔 Why 9Router?
+## What's different from upstream
 
-**Stop wasting money, tokens and hitting limits:**
+- **Text only.** Image / Video / TTS / STT / Embedding / Web-search & fetch are hidden from the dashboard and **blocked at the router** (`404 JSON`). Only chat-style traffic is served: `/v1/chat/completions`, `/v1/messages`, `/v1/responses`.
+- **Model whitelist.** `/v1/models` exposes your **combos** plus only the **provider models you explicitly allow** — managed from a new **Model Whitelist** page in the dashboard. No more hundreds of raw upstream models leaking into your client.
+- **Own release pipeline.** Published under the `@rcdevgames` npm scope; releases are cut by pushing a `v*` tag on the `deploy` branch (auto-published via GitHub Actions).
 
-- ❌ Subscription quota expires unused every month
-- ❌ Rate limits stop you mid-coding
-- ❌ Tool outputs (git diff, grep, ls...) burn tokens fast
-- ❌ Expensive APIs ($20-50/month per provider)
-
-**9Router solves this:**
-
-- ✅ **RTK Token Saver** - Auto-compress tool_result, save 20-40% tokens
-- ✅ **Maximize subscriptions** - Track quota, use every bit before reset
-- ✅ **Auto fallback** - Subscription → Cheap → Free, zero downtime
-- ✅ **Multi-account** - Round-robin between accounts per provider
-- ✅ **Universal** - Works with any OpenAI/Claude-compatible CLI
+Everything else — combos, fallback, format translation, RTK token saver, usage analytics — is inherited from 9Router.
 
 ---
 
-## ⚡ Quick Start
-
-**Option 1 — npm (recommended for desktop):**
+## Install
 
 ```bash
-npm install -g 9router
+npm install -g @rcdevgames/sembilan-router
 9router
-
-# Or run directly with npx
-npx 9router
 ```
 
-**Option 2 — Docker (server/VPS):**
+The dashboard opens at `http://localhost:20128/dashboard`, the API at `http://localhost:20128/v1`.
+
+Point any OpenAI / Anthropic-compatible client at it:
+
+```
+Endpoint: http://localhost:20128/v1
+API Key:  <copy from the dashboard>
+Model:    <a combo name, or a whitelisted model id>
+```
+
+## CLI options
 
 ```bash
-docker run -d --name 9router -p 20128:20128 \
-  -v "$HOME/.9router:/app/data" -e DATA_DIR=/app/data \
-  decolua/9router:latest
+9router                 # start with defaults
+9router --port 8080     # custom port
+9router --no-browser    # don't open the browser
+9router --skip-update   # skip auto-update check
+9router --help          # show all options
 ```
 
-Published images: [Docker Hub](https://hub.docker.com/r/decolua/9router) • [GHCR](https://github.com/decolua/9router/pkgs/container/9router) (multi-platform amd64/arm64).
+## Data location
 
-🎉 Dashboard opens at `http://localhost:20128`
-
-**2. Connect a FREE provider (no signup needed):**
-
-Dashboard → Providers → Connect **Kiro AI** (free Claude unlimited) or **OpenCode Free** (no auth) → Done!
-
-**3. Use in your CLI tool:**
-
-```
-Claude Code/Codex/OpenClaw/Cursor/Cline Settings:
-  Endpoint: http://localhost:20128/v1
-  API Key:  [copy from dashboard]
-  Model:    kr/claude-sonnet-4.5
-```
-
-That's it! Start coding with FREE AI models.
+- **macOS / Linux:** `~/.9router/`
+- **Windows:** `%APPDATA%/9router/`
 
 ---
 
-## 🚀 CLI Options
+## Attribution
 
-```bash
-9router                    # Start with default settings
-9router --port 8080        # Custom port
-9router --no-browser       # Don't open browser
-9router --skip-update      # Skip auto-update check
-9router --help             # Show all options
-```
+This project is a fork of **[9Router](https://github.com/decolua/9router)** by [decolua](https://github.com/decolua), which in turn builds on ideas from [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI). All credit for the core routing engine goes to them; this fork only adjusts the surface area for personal text-only use. Full feature documentation lives in the upstream repository.
 
-**Dashboard**: `http://localhost:20128/dashboard`
+## License
 
----
-
-## 🛠️ Supported CLI Tools
-
-Claude-Code • OpenClaw • Codex • OpenCode • Cursor • Antigravity • Cline • Continue • Droid • Roo • Copilot • Kilo Code • Gemini CLI • Qwen Code • iFlow • Crush • Crusher • Aider
-
-Any tool supporting OpenAI/Claude-compatible API works.
-
----
-
-## 💾 Data Location
-
-- **macOS/Linux**: `~/.9router/db/data.sqlite`
-- **Windows**: `%APPDATA%/9router/db/data.sqlite`
-- **Docker**: `/app/data/db/data.sqlite` (mount `$HOME/.9router` to persist)
-
----
-
-## 📚 Documentation
-
-Full docs, advanced setup, video tutorials & development guide:
-
-- **GitHub**: https://github.com/decolua/9router
-- **Full README**: https://github.com/decolua/9router/blob/main/app/README.md
-- **Website**: https://9router.com
-
----
-
-## 🙏 Acknowledgments
-
-- **[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)** - Original Go implementation
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
