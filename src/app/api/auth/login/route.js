@@ -3,7 +3,6 @@ import { getSettings } from "@/lib/localDb";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
-import { isOidcConfigured } from "@/lib/auth/oidc";
 import { checkLock, recordFail, recordSuccess, getClientIp } from "@/lib/auth/loginLimiter";
 import { isLocalRequest } from "@/dashboardGuard";
 
@@ -28,7 +27,7 @@ export async function POST(request) {
       );
     }
 
-    const { password } = await request.json();
+    const { username, password } = await request.json();
     const settings = await getSettings();
 
     // Block login via tunnel/tailscale if dashboard access is disabled
@@ -36,21 +35,20 @@ export async function POST(request) {
       return NextResponse.json({ error: "Dashboard access via tunnel is disabled" }, { status: 403 });
     }
 
-    // Default password is '123456' if not set
+    // Username + password auth. Username defaults to DEFAULT_USERNAME env or "admin".
+    const expectedUsername = (settings.username || process.env.DEFAULT_USERNAME || "admin").trim();
     const storedHash = settings.password;
 
-    if (settings.authMode === "oidc" && isOidcConfigured(settings)) {
-      return NextResponse.json({ error: "Password login is disabled. Use OIDC sign in." }, { status: 403 });
-    }
-
-    let isValid = false;
+    const validUser = String(username || "").trim() === expectedUsername;
+    let validPass = false;
     if (storedHash) {
-      isValid = await bcrypt.compare(password, storedHash);
+      validPass = await bcrypt.compare(password || "", storedHash);
     } else {
       // Use env var or default
       const initialPassword = process.env.INITIAL_PASSWORD || "123456";
-      isValid = password === initialPassword;
+      validPass = (password || "") === initialPassword;
     }
+    const isValid = validUser && validPass;
 
     if (isValid) {
       recordSuccess(ip);
@@ -74,7 +72,7 @@ export async function POST(request) {
       );
     }
     return NextResponse.json(
-      { error: `Invalid password. ${remainingBeforeLock} attempt(s) left before lockout.`, remainingBeforeLock },
+      { error: `Invalid username or password. ${remainingBeforeLock} attempt(s) left before lockout.`, remainingBeforeLock },
       { status: 401 }
     );
   } catch (error) {

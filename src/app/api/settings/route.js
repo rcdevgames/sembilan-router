@@ -12,7 +12,7 @@ const SETTINGS_RESPONSE_HEADERS = {
 };
 
 // Secrets must never be mass-assigned from request body (CWE-915)
-const PROTECTED_SETTING_KEYS = ["password", "mitmSudoEncrypted"];
+const PROTECTED_SETTING_KEYS = ["password", "username", "mitmSudoEncrypted"];
 
 export async function GET() {
   try {
@@ -41,6 +41,36 @@ export async function PATCH(request) {
 
     // Strip protected secrets before any internal handling sets them
     for (const key of PROTECTED_SETTING_KEYS) delete body[key];
+
+    // If updating username: require current password + must differ from current username
+    if (body.newUsername !== undefined) {
+      const cur = await getSettings();
+      const expectedUsername = (cur.username || process.env.DEFAULT_USERNAME || "admin").trim();
+      const newUsername = String(body.newUsername || "").trim();
+      if (!newUsername) {
+        return NextResponse.json({ error: "Username cannot be empty" }, { status: 400 });
+      }
+      if (newUsername === expectedUsername) {
+        return NextResponse.json({ error: "New username must be different from the current username" }, { status: 400 });
+      }
+      const curHash = cur.password;
+      let passOk = false;
+      if (curHash) {
+        if (!body.currentPassword) {
+          return NextResponse.json({ error: "Current password required" }, { status: 400 });
+        }
+        passOk = await bcrypt.compare(body.currentPassword, curHash);
+      } else {
+        const initialPassword = process.env.INITIAL_PASSWORD || "123456";
+        passOk = (body.currentPassword || "") === initialPassword;
+      }
+      if (!passOk) {
+        return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
+      }
+      body.username = newUsername;
+      delete body.newUsername;
+      delete body.currentPassword;
+    }
 
     // If updating password, hash it
     if (body.newPassword) {

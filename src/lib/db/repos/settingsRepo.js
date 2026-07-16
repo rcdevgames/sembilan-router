@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS = {
   requireLogin: true,
   tunnelDashboardAccess: true,
   authMode: "password",
+  username: null,
   oidcIssuerUrl: "",
   oidcClientId: "",
   oidcClientSecret: "",

@@ -16,12 +16,21 @@ export async function GET() {
     const displayName = oidcName || oidcEmail || (session?.oidc ? "OIDC user" : "Password user");
     const loginMethod = session?.oidc ? "OIDC" : "Password";
 
+    // Username + default-credentials state (drives the login-page notice)
+    const defaultUsername = (process.env.DEFAULT_USERNAME || "admin").trim();
+    const usernameChanged = !!settings.username && String(settings.username).trim() !== defaultUsername;
+    const passwordChanged = !!settings.password;
+    const usingDefaultCredentials = !usernameChanged || !passwordChanged;
+
     return NextResponse.json({
       requireLogin,
       authMode,
       oidcConfigured: isOidcConfigured(settings),
       oidcLoginLabel: (settings.oidcLoginLabel || "Sign in with OIDC").trim() || "Sign in with OIDC",
       hasPassword: !!settings.password,
+      hasUsername: !!settings.username,
+      defaultUsername,
+      usingDefaultCredentials,
       displayName,
       loginMethod,
       oidcName: oidcName || null,

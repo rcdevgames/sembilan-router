@@ -4,15 +4,15 @@ import { useState, useEffect } from "react";
 import { Card, Button, Input } from "@/shared/components";
 
 export default function LoginPage() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [resetHint, setResetHint] = useState("");
   const [retryAfter, setRetryAfter] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasPassword, setHasPassword] = useState(null);
-  const [authMode, setAuthMode] = useState("password");
-  const [oidcConfigured, setOidcConfigured] = useState(false);
-  const [oidcLoginLabel, setOidcLoginLabel] = useState("Sign in with OIDC");
+  const [defaultUsername, setDefaultUsername] = useState("admin");
+  const [usingDefaults, setUsingDefaults] = useState(false);
   const [mustChange, setMustChange] = useState(false);
   const [newPassword, setNewPassword] = useState("");
 
@@ -30,9 +30,7 @@ export default function LoginPage() {
       const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
       try {
-        const res = await fetch(`${baseUrl}/api/auth/status`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(`${baseUrl}/api/auth/status`, { signal: controller.signal });
         clearTimeout(timeoutId);
 
         if (res.ok) {
@@ -42,11 +40,9 @@ export default function LoginPage() {
             return;
           }
           setHasPassword(!!data.hasPassword);
-          setAuthMode(data.authMode || "password");
-          setOidcConfigured(data.oidcConfigured === true);
-          setOidcLoginLabel(data.oidcLoginLabel || "Sign in with OIDC");
+          setDefaultUsername(data.defaultUsername || "admin");
+          setUsingDefaults(data.usingDefaultCredentials === true);
         } else {
-          // Safe fallback on non-OK response to avoid infinite loading state.
           setHasPassword(true);
         }
       } catch (err) {
@@ -67,7 +63,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
 
       if (res.ok) {
@@ -79,7 +75,7 @@ export default function LoginPage() {
         window.location.assign("/dashboard");
       } else {
         const data = await res.json();
-        setError(data.error || "Invalid password");
+        setError(data.error || "Invalid username or password");
         if (data.resetHint) setResetHint(data.resetHint);
         if (data.retryAfter) setRetryAfter(Number(data.retryAfter));
       }
@@ -114,14 +110,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleOidcLogin = () => {
-    window.location.href = "/api/auth/oidc/start";
-  };
-
-  const oidcAvailable = oidcConfigured && ["oidc", "both"].includes(authMode);
-  const passwordAvailable = authMode !== "oidc" || !oidcConfigured;
-
-  // Show loading state while checking password
   if (hasPassword === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg p-4">
@@ -140,11 +128,7 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-primary mb-2">Sembilan Router</h1>
-          <p className="text-text-muted">
-            {authMode === "oidc" && oidcConfigured
-              ? "Sign in with your OIDC provider to access the dashboard"
-              : "Enter your password to access the dashboard"}
-          </p>
+          <p className="text-text-muted">Enter your username and password to access the dashboard</p>
         </div>
 
         <Card>
@@ -170,75 +154,68 @@ export default function LoginPage() {
               </Button>
             </form>
           ) : (
-          <div className="flex flex-col gap-4">
-            {oidcAvailable && (
-              <Button type="button" variant="primary" className="w-full" onClick={handleOidcLogin}>
-                {oidcLoginLabel}
-              </Button>
-            )}
-
-            {oidcAvailable && passwordAvailable && <div className="h-px bg-border/60" />}
-
-            {passwordAvailable ? (
-              <form onSubmit={handleLogin} className="flex flex-col gap-4">
-                {((authMode === "oidc" && !oidcConfigured) || (authMode === "both" && !oidcConfigured)) && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
-                    OIDC login is enabled, but the issuer/client fields are not configured yet. Password login is still available for recovery.
+            <form onSubmit={handleLogin} className="flex flex-col gap-4">
+              {usingDefaults && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400">
+                  <span className="material-symbols-outlined text-[16px] mt-0.5">warning</span>
+                  <p className="text-xs">
+                    You are using the default credentials (<code className="bg-amber-500/20 px-1 rounded">{defaultUsername}</code> / <code className="bg-amber-500/20 px-1 rounded">123456</code>).
+                    Change both username and password from <b>Settings → Security</b> after logging in.
+                    This notice disappears once both have been changed.
                   </p>
-                )}
-
-                {authMode === "both" && oidcConfigured && (
-                  <p className="text-xs text-text-muted text-center">
-                    Password and OIDC login are both enabled.
-                  </p>
-                )}
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Password</label>
-                  <Input
-                    type="password"
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoFocus={!oidcAvailable}
-                  />
-                  {error && <p className="text-xs text-red-500">{error}</p>}
-                  {retryAfter > 0 && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
-                    </p>
-                  )}
-                  {resetHint && (
-                    <p className="text-xs text-text-muted">
-                      Forgot password? Open <code className="bg-sidebar px-1 rounded">sembilan-router</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
-                    </p>
-                  )}
                 </div>
+              )}
 
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="w-full"
-                  loading={loading}
-                  disabled={retryAfter > 0}
-                >
-                  {retryAfter > 0 ? `Wait ${retryAfter}s` : "Login"}
-                </Button>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Username</label>
+                <Input
+                  type="text"
+                  placeholder="Enter username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
 
-                <p className="text-xs text-center text-text-muted mt-2">
-                  Default password is <code className="bg-sidebar px-1 rounded">123456</code>
-                </p>
-                {hasPassword === false && (
-                  <p className="text-xs text-center text-amber-600 dark:text-amber-400">
-                    Security risk: no password set. You will be asked to set one when logging in remotely.
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Password</label>
+                <Input
+                  type="password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                {error && <p className="text-xs text-red-500">{error}</p>}
+                {retryAfter > 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
                   </p>
                 )}
-              </form>
-            ) : (
-              error && <p className="text-xs text-red-500">{error}</p>
-            )}
-          </div>
+                {resetHint && (
+                  <p className="text-xs text-text-muted">
+                    Forgot password? Open <code className="bg-sidebar px-1 rounded">sembilan-router</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
+                  </p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full"
+                loading={loading}
+                disabled={retryAfter > 0}
+              >
+                {retryAfter > 0 ? `Wait ${retryAfter}s` : "Login"}
+              </Button>
+
+              {hasPassword === false && (
+                <p className="text-xs text-center text-amber-600 dark:text-amber-400">
+                  Security risk: no password set. You will be asked to set one when logging in remotely.
+                </p>
+              )}
+            </form>
           )}
         </Card>
       </div>
