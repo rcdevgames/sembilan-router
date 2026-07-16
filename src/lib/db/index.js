@@ -55,6 +55,12 @@ export {
   getDisabledModels, getDisabledByProvider, disableModels, enableModels,
 } from "./repos/disabledModelsRepo.js";
 
+// Model whitelist (which provider models are exposed in /v1/models)
+export {
+  getModelWhitelist, setModelWhitelist,
+  addToWhitelist, removeFromWhitelist, clearModelWhitelist,
+} from "./repos/whitelistRepo.js";
+
 // Usage
 export {
   statsEmitter, trackPendingRequest, getActiveRequests,

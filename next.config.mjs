@@ -9,6 +9,15 @@ const tracingRoot = process.env.NEXT_TRACING_ROOT_MODE === "workspace"
   : projectRoot;
 const proxyClientMaxBodySize = process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb";
 
+// Media (non-text) endpoints to block — text-only build.
+// beforeFiles rewrites send matching paths to /api/_disabled (404 JSON), before
+// any media route handler runs. Empty MEDIA_DISABLED_KINDS to restore them.
+const MEDIA_DISABLED_KINDS = ["images", "videos", "audio", "embeddings", "search", "web"];
+const mediaDisabledRewrites = MEDIA_DISABLED_KINDS.flatMap((k) => [
+  { source: `/v1/${k}/:path*`, destination: "/api/_disabled" },
+  { source: `/api/v1/${k}/:path*`, destination: "/api/_disabled" },
+]);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
@@ -51,40 +60,44 @@ const nextConfig = {
     return config;
   },
   async rewrites() {
-    return [
-      {
-        source: "/v1/v1/:path*",
-        destination: "/api/v1/:path*"
-      },
-      {
-        source: "/v1/v1",
-        destination: "/api/v1"
-      },
-      {
-        source: "/codex/:path*",
-        destination: "/api/v1/responses"
-      },
-      {
-        source: "/responses",
-        destination: "/api/v1/responses"
-      },
-      {
-        source: "/v1beta/:path*",
-        destination: "/api/v1beta/:path*"
-      },
-      {
-        source: "/v1beta",
-        destination: "/api/v1beta"
-      },
-      {
-        source: "/v1/:path*",
-        destination: "/api/v1/:path*"
-      },
-      {
-        source: "/v1",
-        destination: "/api/v1"
-      }
-    ];
+    return {
+      beforeFiles: mediaDisabledRewrites,
+      afterFiles: [
+        {
+          source: "/v1/v1/:path*",
+          destination: "/api/v1/:path*"
+        },
+        {
+          source: "/v1/v1",
+          destination: "/api/v1"
+        },
+        {
+          source: "/codex/:path*",
+          destination: "/api/v1/responses"
+        },
+        {
+          source: "/responses",
+          destination: "/api/v1/responses"
+        },
+        {
+          source: "/v1beta/:path*",
+          destination: "/api/v1beta/:path*"
+        },
+        {
+          source: "/v1beta",
+          destination: "/api/v1beta"
+        },
+        {
+          source: "/v1/:path*",
+          destination: "/api/v1/:path*"
+        },
+        {
+          source: "/v1",
+          destination: "/api/v1"
+        }
+      ],
+      fallback: []
+    };
   }
 };
 

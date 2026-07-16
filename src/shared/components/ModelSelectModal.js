@@ -31,6 +31,7 @@ export default function ModelSelectModal({
   modelAliases = {},
   kindFilter = null,
   addedModelValues = [],
+  hideCombos = false,
   closeOnSelect = true,
 }) {
   // Filter activeProviders by serviceKinds when kindFilter set (e.g. "webSearch", "webFetch")
@@ -353,11 +354,11 @@ export default function ModelSelectModal({
 
   // Filter combos by search query (and hide combos when kindFilter is set — combos are LLM-only by design)
   const filteredCombos = useMemo(() => {
-    if (kindFilter) return [];
+    if (kindFilter || hideCombos) return [];
     if (!searchQuery.trim()) return combos;
     const query = searchQuery.toLowerCase();
     return combos.filter(c => c.name.toLowerCase().includes(query));
-  }, [combos, searchQuery, kindFilter]);
+  }, [combos, searchQuery, kindFilter, hideCombos]);
 
   // Sort models alphabetically, with added models floated to top
   const sortModels = (models) => {
@@ -577,5 +578,6 @@ ModelSelectModal.propTypes = {
   modelAliases: PropTypes.object,
   kindFilter: PropTypes.string,
   addedModelValues: PropTypes.arrayOf(PropTypes.string),
+  hideCombos: PropTypes.bool,
   closeOnSelect: PropTypes.bool,
 };

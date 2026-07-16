@@ -7,6 +7,7 @@ import {
 } from "@/shared/constants/providers";
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
+import { getModelWhitelist } from "@/lib/whitelistDb";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
 import { resolveKimchiModels } from "open-sse/services/kimchiModels.js";
 import { resolveQoderModels } from "open-sse/services/qoderModels.js";
@@ -492,7 +493,19 @@ export async function buildModelsList(kindFilter, options = {}) {
     dedupedModels.push(model);
   }
 
-  return dedupedModels;
+  // === Model whitelist filter ===
+  // Combos always pass (owned_by === "combo"). Provider models only pass when
+  // their full id (e.g. "openai/gpt-4o") is in the whitelist. Empty whitelist
+  // = only combos exposed. Managed from dashboard → Model Whitelist.
+  let whitelistSet = new Set();
+  try {
+    whitelistSet = new Set(await getModelWhitelist());
+  } catch (e) {
+    console.log("Could not read model whitelist, exposing combos only");
+  }
+  return dedupedModels.filter(
+    (m) => m.owned_by === "combo" || whitelistSet.has(m.id)
+  );
 }
 
 /**

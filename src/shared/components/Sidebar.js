@@ -14,6 +14,8 @@ import NineRemotePromoModal from "./NineRemotePromoModal";
 
 // const VISIBLE_MEDIA_KINDS = ["embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music"];
 const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt"];
+// Toggle to hide the entire Media Providers section (image/video/tts/stt/embedding/web)
+const SHOW_MEDIA_PROVIDERS = false;
 // Combined entry: webSearch + webFetch share one page at /dashboard/media-providers/web
 const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon: "travel_explore", href: "/dashboard/media-providers/web" };
 
@@ -22,6 +24,7 @@ const navItems = [
   { href: "/dashboard/providers", label: "Providers", icon: "dns" },
   // { href: "/dashboard/basic-chat", label: "Basic Chat", icon: "chat" }, // Hidden
   { href: "/dashboard/combos", label: "Combos", icon: "layers" },
+  { href: "/dashboard/model-whitelist", label: "Model Whitelist", icon: "verified" },
   { href: "/dashboard/usage", label: "Usage", icon: "bar_chart" },
   { href: "/dashboard/quota", label: "Quota Tracker", icon: "data_usage" },
   { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
@@ -188,7 +191,8 @@ export default function Sidebar({ onClose }) {
               System
             </p>
 
-            {/* Media Providers accordion */}
+            {/* Media Providers accordion — hidden (text-only build; flip SHOW_MEDIA_PROVIDERS to restore) */}
+            {SHOW_MEDIA_PROVIDERS && (<>
             <button
               onClick={() => setMediaOpen((v) => !v)}
               className={cn(
@@ -238,6 +242,7 @@ export default function Sidebar({ onClose }) {
                 </Link>
               </div>
             )}
+            </>)}
 
             {systemItems.map((item) => (
               <Link
