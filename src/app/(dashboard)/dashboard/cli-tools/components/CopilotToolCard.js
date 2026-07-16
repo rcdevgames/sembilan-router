@@ -80,7 +80,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
 
   const getConfigStatus = () => {
     if (!status) return null;
-    if (!status.hasSembilan Router) return "not_configured";
+    if (!status.hasSembilanRouter) return "not_configured";
     const url = status.currentUrl || "";
     return matchKnownEndpoint(url, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
   };
@@ -278,7 +278,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
                 <Button variant="primary" size="sm" onClick={handleApply} disabled={selectedModels.length === 0} loading={applying}>
                   <span className="material-symbols-outlined text-[14px] mr-1">save</span>Apply
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleReset} disabled={!status?.hasSembilan Router} loading={restoring}>
+                <Button variant="outline" size="sm" onClick={handleReset} disabled={!status?.hasSembilanRouter} loading={restoring}>
                   <span className="material-symbols-outlined text-[14px] mr-1">restore</span>Reset
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)} disabled={selectedModels.length === 0}>

@@ -74,7 +74,7 @@ const readConfig = async () => {
 };
 
 // Check if config has Sembilan Router settings
-const hasSembilan RouterConfig = (config) => {
+const hasSembilanRouterConfig = (config) => {
   if (!config) return false;
   return config.includes("model_provider = \"sembilan-router\"") || config.includes("[model_providers.sembilan-router]");
 };
@@ -97,7 +97,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       config,
-      hasSembilan Router: hasSembilan RouterConfig(config),
+      hasSembilanRouter: hasSembilanRouterConfig(config),
       configPath: getCodexConfigPath(),
     });
   } catch (error) {

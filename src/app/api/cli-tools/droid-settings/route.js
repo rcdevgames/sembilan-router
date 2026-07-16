@@ -47,7 +47,7 @@ const readSettings = async () => {
 };
 
 // Check if settings has Sembilan Router customModels
-const hasSembilan RouterConfig = (settings) => {
+const hasSembilanRouterConfig = (settings) => {
   if (!settings || !settings.customModels) return false;
   return settings.customModels.some(m => m.id?.startsWith("custom:Sembilan Router"));
 };
@@ -70,7 +70,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       settings,
-      hasSembilan Router: hasSembilan RouterConfig(settings),
+      hasSembilanRouter: hasSembilanRouterConfig(settings),
       settingsPath: getDroidSettingsPath(),
     });
   } catch (error) {

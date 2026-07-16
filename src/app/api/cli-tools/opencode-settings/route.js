@@ -48,7 +48,7 @@ const readConfig = async () => {
   }
 };
 
-const hasSembilan RouterConfig = (config) => {
+const hasSembilanRouterConfig = (config) => {
   if (!config?.provider) return false;
   return !!config.provider["sembilan-router"];
 };
@@ -73,7 +73,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       config,
-      hasSembilan Router: hasSembilan RouterConfig(config),
+      hasSembilanRouter: hasSembilanRouterConfig(config),
       configPath: getConfigPath(),
         opencode: {
           models: Object.keys(modelMap),

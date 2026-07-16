@@ -44,7 +44,7 @@ const readConfig = async () => {
   }
 };
 
-const hasSembilan RouterConfig = (config) => {
+const hasSembilanRouterConfig = (config) => {
   if (!config || !config.providers) return false;
 
   const providers = config.providers;
@@ -118,12 +118,12 @@ export async function GET() {
   }
 
   const config = await readConfig();
-  const hasSembilan Router = hasSembilan RouterConfig(config);
+  const hasSembilanRouter = hasSembilanRouterConfig(config);
 
   return NextResponse.json({
     installed: true,
     config,
-    hasSembilan Router,
+    hasSembilanRouter,
     configPath: getConfigPath(),
   });
 }

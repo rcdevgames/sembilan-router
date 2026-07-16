@@ -57,7 +57,7 @@ const readSettings = async () => {
 };
 
 // Check if settings has Sembilan Router config
-const hasSembilan RouterConfig = (settings) => {
+const hasSembilanRouterConfig = (settings) => {
   if (!settings || !settings.models || !settings.models.providers) return false;
   return !!settings.models.providers["sembilan-router"];
 };
@@ -105,7 +105,7 @@ export async function GET() {
       installed: true,
       settings,
       agents: enrichedAgents,
-      hasSembilan Router: hasSembilan RouterConfig(settings),
+      hasSembilanRouter: hasSembilanRouterConfig(settings),
       settingsPath: getOpenClawSettingsPath(),
     });
   } catch (error) {

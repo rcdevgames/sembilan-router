@@ -30,12 +30,12 @@ const readConfig = async () => {
   }
 };
 
-const hasSembilan RouterConfig = (config) => {
+const hasSembilanRouterConfig = (config) => {
   if (!Array.isArray(config)) return false;
   return config.some((entry) => entry.name === "Sembilan Router");
 };
 
-const getSembilan RouterEntry = (config) => {
+const getSembilanRouterEntry = (config) => {
   if (!Array.isArray(config)) return null;
   return config.find((entry) => entry.name === "Sembilan Router") || null;
 };
@@ -44,12 +44,12 @@ const getSembilan RouterEntry = (config) => {
 export async function GET() {
   try {
     const config = await readConfig();
-    const entry = getSembilan RouterEntry(config);
+    const entry = getSembilanRouterEntry(config);
 
     return NextResponse.json({
       installed: true,
       config,
-      hasSembilan Router: hasSembilan RouterConfig(config),
+      hasSembilanRouter: hasSembilanRouterConfig(config),
       configPath: getConfigPath(),
       currentModel: entry?.models?.[0]?.id || null,
       currentUrl: entry?.models?.[0]?.url || null,

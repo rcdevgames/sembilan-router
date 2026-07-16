@@ -64,12 +64,12 @@ export async function GET() {
     }
 
     const settings = await readSettings();
-    const hasSembilan Router = !!(settings?.env?.ANTHROPIC_BASE_URL);
+    const hasSembilanRouter = !!(settings?.env?.ANTHROPIC_BASE_URL);
 
     return NextResponse.json({
       installed: true,
       settings: settings,
-      hasSembilan Router: hasSembilan Router,
+      hasSembilanRouter: hasSembilanRouter,
       settingsPath: getClaudeSettingsPath(),
     });
   } catch (error) {

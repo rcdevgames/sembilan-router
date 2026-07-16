@@ -52,7 +52,7 @@ const parseToml = (content) => {
 };
 
 // Build TOML config for Sembilan Router (openai provider mode)
-const buildSembilan RouterConfig = (baseUrl, apiKey, model) => {
+const buildSembilanRouterConfig = (baseUrl, apiKey, model) => {
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
     return `provider = "openai"
 
@@ -93,7 +93,7 @@ const readConfigToml = async () => {
 };
 
 // Detect Sembilan Router by checking if provider is "openai" and base_url points to localhost/127.0.0.1
-const hasSembilan RouterConfig = (config) => {
+const hasSembilanRouterConfig = (config) => {
     if (!config) return false;
     const provider = config.provider;
     if (provider !== "openai") return false;
@@ -113,7 +113,7 @@ export async function GET() {
         return NextResponse.json({
             installed: true,
             settings: config,
-            hasSembilan Router: hasSembilan RouterConfig(config),
+            hasSembilanRouter: hasSembilanRouterConfig(config),
             configPath: getDeepSeekConfigPath(),
         });
     } catch (error) {
@@ -132,7 +132,7 @@ export async function POST(request) {
         const dir = getDeepSeekDir();
         await fs.mkdir(dir, { recursive: true });
 
-        const newConfig = buildSembilan RouterConfig(baseUrl, apiKey || "sk_sembilan-router", model);
+        const newConfig = buildSembilanRouterConfig(baseUrl, apiKey || "sk_sembilan-router", model);
         await fs.writeFile(getDeepSeekConfigPath(), newConfig);
 
         return NextResponse.json({

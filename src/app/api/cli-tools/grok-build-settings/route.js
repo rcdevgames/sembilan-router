@@ -147,7 +147,7 @@ const clearModelsDefaultIfOurs = (toml) => {
   return next;
 };
 
-const hasSembilan RouterConfig = (modelCfg) => {
+const hasSembilanRouterConfig = (modelCfg) => {
   if (!modelCfg?.base_url) return false;
   return true;
 };
@@ -173,7 +173,7 @@ export async function GET() {
         model,
         default: defaultModel,
       },
-      hasSembilan Router: hasSembilan RouterConfig(model),
+      hasSembilanRouter: hasSembilanRouterConfig(model),
       configPath: getGrokConfigPath(),
     });
   } catch (error) {

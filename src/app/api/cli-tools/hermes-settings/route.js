@@ -93,7 +93,7 @@ const readEnvFile = async () => {
 };
 
 // Detect sembilan-router by base_url containing localhost/127.0.0.1 or matching tunnel URL
-const hasSembilan RouterConfig = (modelCfg) => {
+const hasSembilanRouterConfig = (modelCfg) => {
   if (!modelCfg?.base_url) return false;
   return modelCfg.provider === "custom" && /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(modelCfg.base_url);
 };
@@ -109,7 +109,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       settings: { model },
-      hasSembilan Router: hasSembilan RouterConfig(model),
+      hasSembilanRouter: hasSembilanRouterConfig(model),
       configPath: getHermesConfigPath(),
     });
   } catch (error) {

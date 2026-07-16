@@ -44,7 +44,7 @@ const readJson = async (filePath) => {
   }
 };
 
-const hasSembilan RouterConfig = (auth) => {
+const hasSembilanRouterConfig = (auth) => {
   if (!auth) return false;
   const entry = auth["openai-compatible"] || auth["sembilan-router"];
   if (!entry) return false;
@@ -62,7 +62,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       settings: { auth: auth ? Object.keys(auth) : [] },
-      hasSembilan Router: hasSembilan RouterConfig(auth),
+      hasSembilanRouter: hasSembilanRouterConfig(auth),
       authPath: getAuthPath(),
     });
   } catch (error) {
