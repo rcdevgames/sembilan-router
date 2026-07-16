@@ -1,6 +1,6 @@
 {
   "name": "@rcdevgames/sembilan-router",
-  "version": "0.5.35-rc.1",
+  "version": "0.0.1",
   "description": "Sembilan Router CLI - Start and manage Sembilan Router server",
   "bin": {
     "sembilan-router": "./cli.js"
