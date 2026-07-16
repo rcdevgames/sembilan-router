@@ -25,7 +25,7 @@ Everything else — combos, fallback, format translation, RTK token saver, usage
 
 ```bash
 npm install -g @rcdevgames/sembilan-router
-9router
+sembilan-router
 ```
 
 The dashboard opens at `http://localhost:20128/dashboard`, the API at `http://localhost:20128/v1`.
@@ -41,17 +41,17 @@ Model:    <a combo name, or a whitelisted model id>
 ## CLI options
 
 ```bash
-9router                 # start with defaults
-9router --port 8080     # custom port
-9router --no-browser    # don't open the browser
-9router --skip-update   # skip auto-update check
-9router --help          # show all options
+sembilan-router                 # start with defaults
+sembilan-router --port 8080     # custom port
+sembilan-router --no-browser    # don't open the browser
+sembilan-router --skip-update   # skip auto-update check
+sembilan-router --help          # show all options
 ```
 
 ## Data location
 
-- **macOS / Linux:** `~/.9router/`
-- **Windows:** `%APPDATA%/9router/`
+- **macOS / Linux:** `~/.sembilan-router/`
+- **Windows:** `%APPDATA%/sembilan-router/`
 
 ---
 

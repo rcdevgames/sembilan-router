@@ -33,7 +33,7 @@ Everything that matters for text routing is unchanged and inherited from upstrea
 
 ```bash
 npm install -g @rcdevgames/sembilan-router
-9router
+sembilan-router
 ```
 
 - Dashboard: `http://localhost:20128/dashboard`
@@ -74,17 +74,17 @@ After this, `GET /v1/models` returns **combos + whitelisted models** and nothing
 ## CLI options
 
 ```bash
-9router                 # start with defaults
-9router --port 8080     # custom port
-9router --no-browser    # don't open the browser
-9router --skip-update   # skip auto-update check
-9router --help          # show all options
+sembilan-router                 # start with defaults
+sembilan-router --port 8080     # custom port
+sembilan-router --no-browser    # don't open the browser
+sembilan-router --skip-update   # skip auto-update check
+sembilan-router --help          # show all options
 ```
 
 ## Data location
 
-- **macOS / Linux:** `~/.9router/`
-- **Windows:** `%APPDATA%/9router/`
+- **macOS / Linux:** `~/.sembilan-router/`
+- **Windows:** `%APPDATA%/sembilan-router/`
 
 ---
 
