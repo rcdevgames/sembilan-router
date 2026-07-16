@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { Card, Button, CardSkeleton, ModelSelectModal, ConfirmModal } from "@/shared/components";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Card, Button, CardSkeleton, ModelSelectModal, ConfirmModal, Modal } from "@/shared/components";
 
 const DESCRIPTION =
   "Models allowed here are exposed in /v1/models. Combos are always shown — provider models appear only if added to this list. Click a chip to remove it.";
@@ -17,6 +17,10 @@ export default function ModelWhitelistPage() {
   const [showSelect, setShowSelect] = useState(false);
   const [activeProviders, setActiveProviders] = useState([]);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testState, setTestState] = useState({ current: 0, total: 0, passed: 0, failed: 0, currentModel: "" });
+  const [testResults, setTestResults] = useState([]);
+  const cancelRef = useRef(false);
 
   const fetchData = async () => {
     try {
@@ -88,6 +92,61 @@ export default function ModelWhitelistPage() {
     }
   };
 
+  // Test every active model (combos + whitelisted) one by one. Continues past
+  // individual failures; only stops on cancel (after the in-flight test).
+  const handleTestAll = async () => {
+    setTesting(true);
+    cancelRef.current = false;
+    setTestResults([]);
+    setTestState({ current: 0, total: 0, passed: 0, failed: 0, currentModel: "" });
+    try {
+      const combosRes = await fetch("/api/combos");
+      const combosData = await combosRes.json().catch(() => ({}));
+      const comboNames = (combosData.combos || [])
+        .filter((c) => !c.kind || c.kind === "llm")
+        .map((c) => c.name);
+      const models = Array.from(new Set([...comboNames, ...whitelist]));
+      setTestState((s) => ({ ...s, total: models.length }));
+
+      let passed = 0;
+      let failed = 0;
+      const results = [];
+      for (let i = 0; i < models.length; i++) {
+        if (cancelRef.current) break;
+        const model = models[i];
+        setTestState((s) => ({ ...s, current: i + 1, currentModel: model }));
+        try {
+          const r = await fetch("/api/models/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model, kind: "llm" }),
+          });
+          const d = await r.json().catch(() => ({}));
+          const ok = r.ok && d.ok === true;
+          if (ok) passed++; else failed++;
+          results.push({ model, ok, latencyMs: d.latencyMs ?? null, error: d.error || null });
+        } catch (e) {
+          failed++;
+          results.push({ model, ok: false, latencyMs: null, error: String(e?.message || e) });
+        }
+        setTestResults([...results]);
+        setTestState((s) => ({ ...s, passed, failed }));
+      }
+    } catch (e) {
+      console.log("Test all error:", e);
+    } finally {
+      setTestState((s) => ({ ...s, currentModel: "" }));
+      setTesting(false);
+    }
+  };
+
+  const handleCancelTest = () => { cancelRef.current = true; };
+
+  const closeTestModal = () => {
+    setTestResults([]);
+    setTestState({ current: 0, total: 0, passed: 0, failed: 0, currentModel: "" });
+  };
+
   // Group by provider prefix (the part before the first "/")
   const grouped = useMemo(() => {
     const g = {};
@@ -126,6 +185,14 @@ export default function ModelWhitelistPage() {
               Clear all
             </Button>
           )}
+          <Button
+            icon="science"
+            onClick={handleTestAll}
+            loading={testing}
+            className="w-full sm:w-auto whitespace-nowrap"
+          >
+            Test All
+          </Button>
           <Button
             icon="add"
             onClick={() => setShowSelect(true)}
@@ -196,6 +263,61 @@ export default function ModelWhitelistPage() {
         hideCombos={true}
         closeOnSelect={false}
       />
+
+      <Modal
+        isOpen={testing || testResults.length > 0}
+        onClose={() => { if (!testing) closeTestModal(); }}
+        title="Test All Models"
+        size="md"
+        footer={
+          testing ? (
+            <Button variant="ghost" onClick={handleCancelTest}>Cancel</Button>
+          ) : (
+            <Button variant="primary" onClick={closeTestModal}>Close</Button>
+          )
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium">
+              {testing
+                ? `Testing ${testState.current}/${testState.total || "?"}`
+                : `Done \u2014 ${testState.passed} passed, ${testState.failed} failed`}
+            </span>
+            <span className="flex gap-3">
+              <span className="text-green-600 dark:text-green-400">\u2713 {testState.passed}</span>
+              <span className="text-red-500">\u2717 {testState.failed}</span>
+            </span>
+          </div>
+          {testing && testState.currentModel && (
+            <p className="text-xs text-text-muted truncate font-mono">{testState.currentModel}</p>
+          )}
+          {testState.total > 0 && (
+            <div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{ width: `${testState.total ? (testState.current / testState.total) * 100 : 0}%` }}
+              />
+            </div>
+          )}
+          {testResults.length > 0 && (
+            <div className="max-h-[300px] overflow-y-auto flex flex-col gap-1 mt-1">
+              {testResults.map((r, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs px-2 py-1 rounded bg-black/[0.02] dark:bg-white/[0.02]">
+                  <span className={r.ok ? "text-green-600 dark:text-green-400" : "text-red-500"}>
+                    {r.ok ? "\u2713" : "\u2717"}
+                  </span>
+                  <span className="font-mono truncate flex-1">{r.model}</span>
+                  {r.latencyMs != null && <span className="text-text-muted shrink-0">{r.latencyMs}ms</span>}
+                  {!r.ok && r.error && (
+                    <span className="text-red-500 truncate max-w-[45%]" title={r.error}>{r.error}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <ConfirmModal
         isOpen={confirmClear}
