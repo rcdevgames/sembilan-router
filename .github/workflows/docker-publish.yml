@@ -1,9 +1,9 @@
 name: Build and Push Docker Image
 
 on:
-  push:
-    tags:
-      - "v*"
+  # Disabled tag trigger for this fork: docker-publish targets upstream decolua/9router
+  # on Docker Hub, which this fork cannot push to. Re-enable + fix DOCKERHUB_IMAGE if
+  # you want Docker publishing. `v*` tags are now handled by publish-npm.yml.
   workflow_dispatch:
 
 env:

@@ -1,9 +1,13 @@
 {
-  "name": "9router",
-  "version": "0.5.35",
+  "name": "@rcdevgames/sembilan-router",
+  "version": "0.5.35-rc.1",
   "description": "9Router CLI - Start and manage 9Router server",
   "bin": {
     "9router": "./cli.js"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "files": [
     "cli.js",

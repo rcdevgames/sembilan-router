@@ -1,0 +1,62 @@
+name: Publish CLI to npm
+
+# Publishes @rcdevgames/sembilan-router when a `v*` tag is pushed AND the tagged
+# commit is reachable from the `deploy` branch. Tags on any other branch are ignored.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Publish @rcdevgames/sembilan-router
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed to create the GitHub Release
+
+    steps:
+      - name: Checkout (full history for branch ancestry check)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Guard — tag must be on the deploy branch
+        run: |
+          git fetch origin deploy --depth=1
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/deploy; then
+            echo "Tag $GITHUB_REF_NAME is on 'deploy' ✓"
+          else
+            echo "::error::Tag $GITHUB_REF_NAME is not reachable from 'deploy' — refusing to publish."
+            exit 1
+          fi
+
+      - name: Guard — tag must match cli/package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./cli/package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$PKG_VERSION" ]; then
+            echo "::error::Tag '$GITHUB_REF_NAME' does not match cli/package.json version 'v$PKG_VERSION'"
+            exit 1
+          fi
+          echo "Version match: v$PKG_VERSION ✓"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build & publish CLI
+        run: npm run cli:publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
