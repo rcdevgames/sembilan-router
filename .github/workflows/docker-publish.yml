@@ -1,14 +1,14 @@
 name: Build and Push Docker Image
 
 on:
-  # Disabled tag trigger for this fork: docker-publish targets upstream decolua/9router
+  # Disabled tag trigger for this fork: docker-publish targets upstream rcdevgames/sembilan-router
   # on Docker Hub, which this fork cannot push to. Re-enable + fix DOCKERHUB_IMAGE if
   # you want Docker publishing. `v*` tags are now handled by publish-npm.yml.
   workflow_dispatch:
 
 env:
   GHCR_IMAGE: ghcr.io/${{ github.repository }}
-  DOCKERHUB_IMAGE: decolua/9router
+  DOCKERHUB_IMAGE: rcdevgames/sembilan-router
 
 jobs:
   build-and-push:

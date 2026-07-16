@@ -9,11 +9,11 @@ import os from "os";
 
 const execAsync = promisify(exec);
 
-const PROVIDER_NAME = "9router";
-const MODEL_SLOT = "9router";
+const PROVIDER_NAME = "sembilan-router";
+const MODEL_SLOT = "sembilan-router";
 const BUILTIN_DEFAULT = "grok-build";
 
-// [model.9router] ... until next [section] header or EOF
+// [model.sembilan-router] ... until next [section] header or EOF
 const MODEL_SECTION_RE = new RegExp(
   `^\\[model\\.${MODEL_SLOT}\\][ \\t]*\\r?\\n(?:(?!\\[)[^\\r\\n]*\\r?\\n?)*`,
   "m"
@@ -22,7 +22,7 @@ const MODEL_SECTION_RE = new RegExp(
 const MODELS_SECTION_RE = /^\[models\][ \t]*\r?\n((?:(?!\[)[^\r\n]*\r?\n?)*)/m;
 
 // Marker written on Apply so Reset can restore the previous [models].default
-const PREV_DEFAULT_RE = /^# 9router-prev-default = "([^"]*)"[ \t]*\r?\n?/m;
+const PREV_DEFAULT_RE = /^# sembilan-router-prev-default = "([^"]*)"[ \t]*\r?\n?/m;
 
 const getGrokDir = () => path.join(os.homedir(), ".grok");
 const getGrokConfigPath = () => path.join(getGrokDir(), "config.toml");
@@ -87,8 +87,8 @@ const buildModelSection = (model, baseUrl, apiKey) => {
     `[model.${MODEL_SLOT}]`,
     `model = "${model}"`,
     `base_url = "${baseUrl}"`,
-    `name = "9Router"`,
-    `description = "Routed via 9Router gateway"`,
+    `name = "Sembilan Router"`,
+    `description = "Routed via Sembilan Router gateway"`,
     `api_backend = "chat_completions"`,
   ];
   if (apiKey) lines.push(`api_key = "${apiKey}"`);
@@ -121,13 +121,13 @@ const setModelsDefault = (toml, value) => {
   return toml.length > 0 ? block + toml : block;
 };
 
-// Remember the previous default once (so re-Apply does not overwrite it with "9router")
+// Remember the previous default once (so re-Apply does not overwrite it with "sembilan-router")
 const rememberPrevDefault = (toml) => {
   if (PREV_DEFAULT_RE.test(toml)) return toml;
   const current = parseModelsDefault(toml);
   if (!current || current === MODEL_SLOT) return toml;
-  const marker = `# 9router-prev-default = "${current}"\n`;
-  // Prefer placing the marker just above [model.9router] if present, else at EOF
+  const marker = `# sembilan-router-prev-default = "${current}"\n`;
+  // Prefer placing the marker just above [model.sembilan-router] if present, else at EOF
   if (MODEL_SECTION_RE.test(toml)) {
     return toml.replace(MODEL_SECTION_RE, (section) => marker + section);
   }
@@ -147,7 +147,7 @@ const clearModelsDefaultIfOurs = (toml) => {
   return next;
 };
 
-const has9RouterConfig = (modelCfg) => {
+const hasSembilan RouterConfig = (modelCfg) => {
   if (!modelCfg?.base_url) return false;
   return true;
 };
@@ -173,7 +173,7 @@ export async function GET() {
         model,
         default: defaultModel,
       },
-      has9Router: has9RouterConfig(model),
+      hasSembilan Router: hasSembilan RouterConfig(model),
       configPath: getGrokConfigPath(),
     });
   } catch (error) {
@@ -193,7 +193,7 @@ export async function POST(request) {
     await fs.mkdir(dir, { recursive: true });
 
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
-    const keyToWrite = apiKey || "sk_9router";
+    const keyToWrite = apiKey || "sk_sembilan-router";
 
     let toml = await readConfigToml();
     toml = rememberPrevDefault(toml);

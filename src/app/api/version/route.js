@@ -1,7 +1,7 @@
 import https from "https";
 import pkg from "../../../../package.json" with { type: "json" };
 
-const NPM_PACKAGE_NAME = "9router";
+const NPM_PACKAGE_NAME = "@rcdevgames/sembilan-router";
 const VERSION_CACHE_TTL_MS = 3600000; // cache npm latest lookup for 1h
 
 // Survive hot reload; one cache per process
@@ -11,7 +11,7 @@ const versionCache = (global.__npmVersionCache ??= { value: null, fetchedAt: 0 }
 function fetchLatestVersion() {
   return new Promise((resolve) => {
     const req = https.get(
-      `https://registry.npmjs.org/${NPM_PACKAGE_NAME}/latest`,
+      `https://registry.npmjs.org/${encodeURIComponent(NPM_PACKAGE_NAME)}/latest`,
       { timeout: 4000 },
       (res) => {
         let data = "";
