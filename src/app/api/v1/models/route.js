@@ -8,6 +8,8 @@ import {
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { getModelWhitelist } from "@/lib/whitelistDb";
+import { validateApiKey } from "@/lib/localDb";
+import { extractApiKey } from "@/sse/services/auth.js";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
 import { resolveKimchiModels } from "open-sse/services/kimchiModels.js";
 import { resolveQoderModels } from "open-sse/services/qoderModels.js";
@@ -527,6 +529,14 @@ export async function OPTIONS() {
  */
 export async function GET(request) {
   try {
+    // API key is mandatory for all /v1/* requests (no anonymous access)
+    const apiKey = extractApiKey(request);
+    if (!apiKey || !(await validateApiKey(apiKey))) {
+      return Response.json(
+        { error: { message: "Missing or invalid API key", type: "invalid_request_error" } },
+        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
     // Detect cross-instance recursive /models fetch (another sembilan-router fetching our /models)
     const skipDynamicFetch = request?.headers?.get(INTERNAL_MODELS_FETCH_HEADER) === "1";
     const data = await buildModelsList([LLM_KIND], { skipDynamicFetch });

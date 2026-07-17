@@ -4,8 +4,7 @@ import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
-  extractApiKey,
-  authorizeApiKey,
+  extractApiKey, authorizeApiKey, isValidApiKey,
 } from "../services/auth.js";
 import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
 import { getSettings } from "@/lib/localDb";
@@ -62,25 +61,28 @@ export async function handleChat(request, clientRawRequest = null) {
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
-  // Enforce API key if enabled in settings
-  const settings = await getSettings();
-  if (settings.requireApiKey && !apiKey) {
-    log.warn("AUTH", "Missing API key (requireApiKey=true)");
+  // API key is mandatory for all /v1/* requests (toggle removed; always enforced)
+  if (!apiKey) {
+    log.warn("AUTH", "Missing API key");
     return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
+  }
+  const keyOk = await isValidApiKey(apiKey);
+  if (!keyOk) {
+    log.warn("AUTH", "Invalid API key");
+    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+  }
+  // Settings still loaded below for combo strategies / bypass filters.
+  const settings = await getSettings();
+  // Quota / expiry / model checks (also handles inactive keys)
+  const keyAuth = await authorizeApiKey(apiKey, modelStr);
+  if (!keyAuth.authorized) {
+    log.warn("AUTH", `API key rejected: ${keyAuth.error}`);
+    return errorResponse(keyAuth.statusCode || HTTP_STATUS.FORBIDDEN, keyAuth.error || "API key not allowed");
   }
 
   if (!modelStr) {
     log.warn("CHAT", "Missing model");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
-  }
-
-  // Authorize the API key (when provided) against expiry / allowed models / quotas
-  if (apiKey) {
-    const authResult = await authorizeApiKey(apiKey, modelStr);
-    if (!authResult.authorized) {
-      log.warn("AUTH", `API key rejected: ${authResult.error}`);
-      return errorResponse(authResult.statusCode || HTTP_STATUS.UNAUTHORIZED, authResult.error);
-    }
   }
 
   // Bypass naming/warmup requests before combo rotation to avoid wasting rotation slots

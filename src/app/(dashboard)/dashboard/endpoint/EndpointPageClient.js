@@ -30,7 +30,6 @@ export default function APIPageClient({ machineId }) {
   const [createdKey, setCreatedKey] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
-  const [requireApiKey, setRequireApiKey] = useState(false);
   const [requireLogin, setRequireLogin] = useState(true);
   const [hasPassword, setHasPassword] = useState(true);
  const [tunnelDashboardAccess, setTunnelDashboardAccess] = useState(false);
@@ -205,7 +204,6 @@ export default function APIPageClient({ machineId }) {
       ]);
       if (settingsRes.ok) {
         const data = await settingsRes.json();
-        setRequireApiKey(data.requireApiKey || false);
         setRequireLogin(data.requireLogin !== false);
         setHasPassword(data.hasPassword || false);
         setTunnelDashboardAccess(data.tunnelDashboardAccess || false);
@@ -242,19 +240,6 @@ export default function APIPageClient({ machineId }) {
       if (res.ok) setTunnelDashboardAccess(value);
     } catch (error) {
       console.log("Error updating tunnelDashboardAccess:", error);
-    }
-  };
-
-  const handleRequireApiKey = async (value) => {
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requireApiKey: value }),
-      });
-      if (res.ok) setRequireApiKey(value);
-    } catch (error) {
-      console.log("Error updating requireApiKey:", error);
     }
   };
 
@@ -840,11 +825,7 @@ export default function APIPageClient({ machineId }) {
                     setTunnelStatus({ type: "error", message: `Security required: ${unsafeReason}` });
                     return;
                   }
-                  if (!requireApiKey) {
-                    setTunnelStatus({ type: "error", message: "Security required: Enable \"Require API key\" before activating the tunnel." });
-                    return;
-                  }
-                  setShowEnableTunnelModal(true);
+        setShowEnableTunnelModal(true);
                 }}
               >
                 Enable
@@ -950,12 +931,6 @@ export default function APIPageClient({ machineId }) {
         {/* Security warnings when tunnel or tailscale is active */}
         {(tunnelEnabled || tsEnabled) && (
           <div className="mt-4 flex flex-col gap-2">
-            {!requireApiKey && (
-              <SecurityWarning
-                message="Require API key is disabled — your endpoint is publicly accessible without authentication."
-                action={{ label: "Enable", href: "#require-api-key" }}
-              />
-            )}
             {(!requireLogin || !hasPassword) && (
               <SecurityWarning
                 message={
@@ -998,25 +973,6 @@ export default function APIPageClient({ machineId }) {
             Create Key
           </Button>
         </div>
-
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
-          <div>
-            <p className="font-medium">Require API key</p>
-            <p className="text-sm text-text-muted">
-              Requests without a valid key will be rejected
-            </p>
-          </div>
-          <Toggle
-            checked={requireApiKey}
-            onChange={() => handleRequireApiKey(!requireApiKey)}
-          />
-        </div>
-
-        {isRemoteHost && !requireApiKey && (
-          <div className="mb-4 -mt-2">
-            <SecurityWarning message="Endpoint is exposed without an API key." />
-          </div>
-        )}
 
         {keys.length === 0 ? (
           <div className="text-center py-12">
@@ -1072,12 +1028,12 @@ export default function APIPageClient({ machineId }) {
                       )}
                       {key.maxTokens ? (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${key.usage?.totalTokens >= key.maxTokens ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-600 dark:text-green-400"}`}>
-                          tokens {key.usage?.totalTokens || 0}/{key.maxTokens}
+                          Quota (Token): {Math.max(0, key.maxTokens - (key.usage?.totalTokens || 0))}/{key.maxTokens}
                         </span>
                       ) : null}
                       {key.maxRequests ? (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${key.usage?.totalRequests >= key.maxRequests ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-600 dark:text-green-400"}`}>
-                          req {key.usage?.totalRequests || 0}/{key.maxRequests}
+                          Quota (Request): {Math.max(0, key.maxRequests - (key.usage?.totalRequests || 0))}/{key.maxRequests}
                         </span>
                       ) : null}
                       {key.expiresAt ? (
