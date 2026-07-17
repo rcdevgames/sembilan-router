@@ -21,15 +21,27 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { isActive } = body;
+    const { isActive, name, expiresAt, maxTokens, maxRequests, allowedModels } = body;
 
     const existing = await getApiKeyById(id);
     if (!existing) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
     }
 
+    const numOrNull = (v) => (v === "" || v === null || v === undefined) ? null : (Number(v) || null);
     const updateData = {};
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (name !== undefined) updateData.name = name;
+    if (expiresAt !== undefined) updateData.expiresAt = expiresAt ? expiresAt : null;
+    if (allowedModels !== undefined) updateData.allowedModels = Array.isArray(allowedModels) ? allowedModels.slice(0, 1) : [];
+    // Limits are mutually exclusive: setting one clears the other.
+    if (maxTokens !== undefined) {
+      updateData.maxTokens = numOrNull(maxTokens);
+      updateData.maxRequests = null;
+    } else if (maxRequests !== undefined) {
+      updateData.maxRequests = numOrNull(maxRequests);
+      updateData.maxTokens = null;
+    }
 
     const updated = await updateApiKey(id, updateData);
 
