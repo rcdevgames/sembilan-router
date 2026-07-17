@@ -41,22 +41,46 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
   return createPassthroughStreamWithLogger(provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey);
 }
 
-// Patterns that mark a streamed SSE chunk as carrying real output (text / tool / reasoning).
-// Intentionally broad across OpenAI / Claude / Gemini / Responses formats: it is safer to
-// over-detect output (skip the empty-fallback) than to false-flag a valid response as empty.
-const SSE_OUTPUT_PATTERNS = [
-  /"content"\s*:\s*"[^"]/",            // OpenAI delta.content (>=1 char)
-  /"reasoning_content"\s*:\s*"[^"]/", // OpenAI / generic reasoning
-  /"tool_calls"\s*:\s*\[./,           // OpenAI tool_calls (non-empty array)
-  /"text_delta"/,                     // Claude text
-  /"thinking_delta"/,                 // Claude thinking
-  /"input_json_delta"/,               // Claude tool input
-  /"content_block_start"[\s\S]{0,80}"tool_use"/, // Claude tool-use block
-  /"output_text"\s*:\s*"[^"]/",      // Responses API text
-  /"function_call_arguments"\s*:\s*"/, // Responses tool args
-  /"functionCall"\s*:/,               // Gemini function call
-  /"parts"\s*:\s*\[[\s\S]{0,60}"text"\s*:/, // Gemini text part
-];
+// Detect whether a client-format SSE `data:` payload carries real output (text / tool_calls /
+// reasoning). JSON-based so it stays robust across OpenAI / Claude / Gemini / Responses formats
+// (no regex literals). Tool-call & reasoning-only events count as output — they are valid.
+function sseLineHasOutput(payload) {
+  let obj;
+  try { obj = JSON.parse(payload); } catch { return false; }
+  if (!obj || typeof obj !== "object") return false;
+
+  // OpenAI-style choices (delta or message)
+  if (Array.isArray(obj.choices)) {
+    for (const ch of obj.choices) {
+      const d = ch?.delta || ch?.message || {};
+      if (typeof d.content === "string" && d.content.length > 0) return true;
+      if (Array.isArray(d.tool_calls) && d.tool_calls.length > 0) return true;
+      if (typeof d.reasoning_content === "string" && d.reasoning_content.length > 0) return true;
+    }
+  }
+
+  // Claude-style events
+  if (obj.type === "content_block_start") return true; // any content block (text/thinking/tool) begins
+  if (obj.type === "content_block_delta") {
+    const dt = obj.delta || {};
+    if (dt.text || dt.thinking || dt.partial_json) return true;
+  }
+
+  // OpenAI Responses API
+  if (typeof obj.output_text === "string" && obj.output_text.length > 0) return true;
+  if (typeof obj.type === "string" && obj.type.includes("delta") && (obj.delta || obj.text)) return true;
+
+  // Gemini-style
+  const parts = obj.candidates?.[0]?.content?.parts;
+  if (Array.isArray(parts)) {
+    for (const p of parts) {
+      if (typeof p?.text === "string" && p.text.length > 0) return true;
+      if (p?.functionCall) return true;
+    }
+  }
+
+  return false;
+}
 
 function sseTextHasOutput(text) {
   for (const raw of text.split("\n")) {
@@ -64,14 +88,14 @@ function sseTextHasOutput(text) {
     if (!line.startsWith("data:")) continue;
     const payload = line.slice(5).trim();
     if (!payload || payload === "[DONE]") continue;
-    for (const re of SSE_OUTPUT_PATTERNS) if (re.test(payload)) return true;
+    if (sseLineHasOutput(payload)) return true;
   }
   return false;
 }
 
-// First-token buffering: read the (client-format) stream until real output appears,
-// the stream ends, or a safety cap is hit. Returns { empty, reader, chunks, ended }.
-// Never throws — on any failure returns empty:false so the caller streams normally.
+// First-token buffering: read the (client-format) stream until real output appears, the stream
+// ends, or a safety cap is hit. Returns { empty, reader, chunks, ended }. Never throws — on any
+// failure returns empty:false so the caller streams normally.
 async function bufferUntilOutputOrEnd(stream, { maxBytes = 1048576, maxMs = 30000 } = {}) {
   let reader;
   try { reader = stream.getReader(); }
@@ -161,10 +185,10 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     console.error("[RequestDetail] Failed to save streaming request:", err.message);
   });
 
-  // First-token buffering: hold the stream until real output (text/tool/reasoning)
-  // arrives or the stream ends. Ends with no output → return an error so chat.js
-  // falls back to the next account. Tool-call / reasoning-only streams are valid.
-  // Any probe failure → stream normally (never breaks streaming).
+  // First-token buffering: hold the stream until real output (text/tool/reasoning) arrives or
+  // the stream ends. Ends with no output → return an error so chat.js falls back to the next
+  // account. Tool-call / reasoning-only streams are valid (detected as output). Any probe
+  // failure → stream normally (never breaks streaming).
   let probe = null;
   try {
     probe = await bufferUntilOutputOrEnd(transformedBody);
