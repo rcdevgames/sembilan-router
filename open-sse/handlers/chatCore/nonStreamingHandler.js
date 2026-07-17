@@ -20,6 +20,29 @@ function parseToolArguments(value) {
   }
 }
 
+// A response is usable if it has ANY output: text, tool_calls, or reasoning.
+// Tool-call / reasoning-only responses are valid (no text needed) and must NOT
+// be treated as empty.
+function messageHasOutput(message) {
+  if (!message) return false;
+  if (Array.isArray(message.tool_calls) && message.tool_calls.length > 0) return true;
+  if (message.reasoning_content && String(message.reasoning_content).trim()) return true;
+  const c = message.content;
+  if (typeof c === "string") return c.trim().length > 0;
+  if (Array.isArray(c)) return c.some((p) => (typeof p === "string" && p.trim()) || (p && typeof p.text === "string" && p.text.trim()));
+  return false;
+}
+
+function hasUsableContent(translatedResponse, isClaudeMessageResponse) {
+  if (isClaudeMessageResponse) {
+    const blocks = translatedResponse?.content || [];
+    return blocks.some((b) => b?.type === "tool_use" || (b?.type === "text" && (b.text || "").trim()) || (b?.type === "thinking" && (b.thinking || "").trim()));
+  }
+  const choices = translatedResponse?.choices;
+  if (!Array.isArray(choices) || choices.length === 0) return false;
+  return choices.some((ch) => messageHasOutput(ch?.message));
+}
+
 function openAICompletionToClaudeMessage(responseBody) {
   if (!responseBody?.choices?.[0]) return responseBody;
   const choice = responseBody.choices[0];
@@ -302,6 +325,13 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   }, { endpoint: clientRawRequest?.endpoint || null })).catch(err => {
     console.error("[RequestDetail] Failed to save:", err.message);
   });
+
+  // Empty response (no text, no tool_calls, no reasoning) → treat as error so the
+  // caller falls back to the next account. Tool-call / reasoning-only responses stay valid.
+  if (!hasUsableContent(translatedResponse, isClaudeMessageResponse)) {
+    appendLog({ status: `FAILED ${HTTP_STATUS.BAD_GATEWAY}` });
+    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, `Provider '${provider}' returned an empty response (no content)`);
+  }
 
   return {
     success: true,
