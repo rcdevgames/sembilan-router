@@ -343,6 +343,24 @@ function loadDaysInRange(adapter, maxDays) {
   return adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]);
 }
 
+// Cumulative SUCCESSFUL usage for an API key (used for lifetime quotas).
+// usageHistory only records token-producing (successful) requests, so COUNT(*)
+// already excludes failures.
+export async function getApiKeyUsageTotals(apiKeyValue) {
+  if (!apiKeyValue) return { totalTokens: 0, totalRequests: 0 };
+  const db = await getAdapter();
+  const row = db.get(
+    `SELECT COALESCE(SUM(COALESCE(promptTokens,0) + COALESCE(completionTokens,0)),0) AS totalTokens,
+            COUNT(*) AS totalRequests
+     FROM usageHistory WHERE apiKey = ?`,
+    [apiKeyValue]
+  );
+  return {
+    totalTokens: row?.totalTokens || 0,
+    totalRequests: row?.totalRequests || 0,
+  };
+}
+
 export async function getUsageStats(period = "all") {
   const db = await getAdapter();
 

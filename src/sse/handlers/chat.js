@@ -5,7 +5,7 @@ import {
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
+  authorizeApiKey,
 } from "../services/auth.js";
 import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
 import { getSettings } from "@/lib/localDb";
@@ -64,21 +64,23 @@ export async function handleChat(request, clientRawRequest = null) {
 
   // Enforce API key if enabled in settings
   const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) {
-      log.warn("AUTH", "Missing API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-    }
+  if (settings.requireApiKey && !apiKey) {
+    log.warn("AUTH", "Missing API key (requireApiKey=true)");
+    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
   }
 
   if (!modelStr) {
     log.warn("CHAT", "Missing model");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
+  }
+
+  // Authorize the API key (when provided) against expiry / allowed models / quotas
+  if (apiKey) {
+    const authResult = await authorizeApiKey(apiKey, modelStr);
+    if (!authResult.authorized) {
+      log.warn("AUTH", `API key rejected: ${authResult.error}`);
+      return errorResponse(authResult.statusCode || HTTP_STATUS.UNAUTHORIZED, authResult.error);
+    }
   }
 
   // Bypass naming/warmup requests before combo rotation to avoid wasting rotation slots

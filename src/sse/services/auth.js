@@ -1,4 +1,5 @@
 import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
+import { getApiKeyByKey, getApiKeyUsageTotals } from "@/lib/db/index.js";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
@@ -316,4 +317,49 @@ export function extractApiKey(request) {
 export async function isValidApiKey(apiKey) {
   if (!apiKey) return false;
   return await validateApiKey(apiKey);
+}
+
+/**
+ * Full API-key authorization: validity + active + expiry + allowed-models +
+ * lifetime token/request quotas (counted from successful usage only).
+ * Quotas are checked against PAST cumulative usage; the in-flight request's tokens
+ * are recorded after completion (output tokens can't be known up-front).
+ * Returns { authorized, statusCode?, errorCode?, error?, key? }.
+ */
+export async function authorizeApiKey(apiKey, model = null) {
+  if (!apiKey) return { authorized: false, statusCode: 401, error: "Missing API key" };
+  const key = await getApiKeyByKey(apiKey);
+  if (!key) return { authorized: false, statusCode: 401, error: "Invalid API key" };
+  if (!key.isActive) return { authorized: false, statusCode: 401, error: "API key is disabled" };
+
+  if (key.expiresAt) {
+    const exp = new Date(key.expiresAt).getTime();
+    if (!Number.isNaN(exp) && Date.now() > exp) {
+      return { authorized: false, statusCode: 401, error: "API key has expired" };
+    }
+  }
+
+  // Per-key model restriction. Empty allowedModels = default (all combos + whitelist).
+  if (Array.isArray(key.allowedModels) && key.allowedModels.length > 0 && model) {
+    if (!key.allowedModels.includes(model)) {
+      return { authorized: false, statusCode: 403, error: `Model '${model}' is not allowed for this API key` };
+    }
+  }
+
+  // Lifetime quotas (maxTokens / maxRequests are mutually exclusive per key)
+  const usage = await getApiKeyUsageTotals(apiKey);
+  if (key.maxRequests && Number(key.maxRequests) > 0 && usage.totalRequests >= Number(key.maxRequests)) {
+    return {
+      authorized: false, statusCode: 429, errorCode: "request_quota_exceeded",
+      error: `Request quota exhausted (${usage.totalRequests}/${key.maxRequests}). Revoke and create a new key.`,
+    };
+  }
+  if (key.maxTokens && Number(key.maxTokens) > 0 && usage.totalTokens >= Number(key.maxTokens)) {
+    return {
+      authorized: false, statusCode: 429, errorCode: "token_quota_exceeded",
+      error: `Token quota exhausted (${usage.totalTokens}/${key.maxTokens}). Revoke and create a new key.`,
+    };
+  }
+
+  return { authorized: true, key };
 }
