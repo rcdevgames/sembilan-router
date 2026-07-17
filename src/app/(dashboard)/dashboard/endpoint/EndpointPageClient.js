@@ -88,35 +88,24 @@ export default function APIPageClient({ machineId }) {
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
   useEffect(() => {
-    const anyEnabled = tunnelEnabled || tsEnabled;
-    if (!anyEnabled) return;
-    const tunnelHealthy = !tunnelEnabled || tunnelReachable;
+    if (!tsEnabled) return;
     const tsHealthy = !tsEnabled || tsReachable;
-    const allHealthy = tunnelHealthy && tsHealthy;
     const onVisible = () => { if (!document.hidden) syncTunnelStatus(); };
     document.addEventListener("visibilitychange", onVisible);
-    if (allHealthy) return () => document.removeEventListener("visibilitychange", onVisible);
+    if (tsHealthy) return () => document.removeEventListener("visibilitychange", onVisible);
     const timer = setInterval(() => { if (!document.hidden) syncTunnelStatus(); }, STATUS_POLL_FAST_MS);
     return () => {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [tunnelEnabled, tsEnabled, tunnelReachable, tsReachable]);
+  }, [tsEnabled, tsReachable]);
 
-  // Browser-side periodic ping: probes tunnel/tailscale URLs directly so UI stays
-  // "reachable" even when backend DNS (1.1.1.1) hiccups on *.ts.net or *.trycloudflare.com.
+  // Browser-side periodic ping: probes tailscale URL directly so UI stays
+  // "reachable" even when backend DNS (1.1.1.1) hiccups on *.ts.net.
   // Adaptive: slow when healthy, fast when degraded; pause when tab hidden.
   useEffect(() => {
-    const probeBoth = async () => {
+    const probe = async () => {
       if (document.hidden) return;
-      if (tunnelEnabled && (tunnelUrl || tunnelPublicUrl)) {
-        const ok = await clientPingAny(tunnelPublicUrl, tunnelUrl);
-        tunnelClientReachableRef.current = ok;
-        if (ok) { tunnelMissRef.current = 0; setTunnelReachable(true); if (!tunnelEverReachableRef.current) { tunnelEverReachableRef.current = true; setTunnelEverReachable(true); } }
-        else { tunnelMissRef.current += 1; if (tunnelMissRef.current >= REACHABLE_MISS_THRESHOLD) setTunnelReachable(false); }
-      } else {
-        tunnelClientReachableRef.current = false;
-      }
       if (tsEnabled && tsUrl) {
         const ok = await clientPingUrl(tsUrl);
         tsClientReachableRef.current = ok;
@@ -126,15 +115,14 @@ export default function APIPageClient({ machineId }) {
         tsClientReachableRef.current = false;
       }
     };
-    const anyEnabled = (tunnelEnabled && (tunnelUrl || tunnelPublicUrl)) || (tsEnabled && tsUrl);
+    const anyEnabled = (tsEnabled && tsUrl);
     if (!anyEnabled) return;
-    probeBoth();
-    const tunnelHealthy = !tunnelEnabled || tunnelReachable;
+    probe();
     const tsHealthy = !tsEnabled || tsReachable;
-    if (tunnelHealthy && tsHealthy) return;
-    const id = setInterval(probeBoth, CLIENT_PING_FAST_MS);
+    if (tsHealthy) return;
+    const id = setInterval(probe, CLIENT_PING_FAST_MS);
     return () => clearInterval(id);
-  }, [tunnelEnabled, tunnelUrl, tunnelPublicUrl, tsEnabled, tsUrl, tunnelReachable, tsReachable]);
+  }, [tsEnabled, tsUrl, tsReachable]);
 
   // Client-side reachable only (server no longer probes; watchdog handles backend health).
   // Miss-debounce: only flip to false after N consecutive misses.
@@ -159,13 +147,6 @@ export default function APIPageClient({ machineId }) {
       const statusRes = await fetch("/api/tunnel/status", { cache: "no-store" });
       if (!statusRes.ok) return;
       const data = await statusRes.json();
-      const tEnabled = data.tunnel?.settingsEnabled ?? data.tunnel?.enabled ?? false;
-      const tUrl = data.tunnel?.tunnelUrl || "";
-      setTunnelUrl(tUrl);
-      setTunnelPublicUrl(data.tunnel?.publicUrl || "");
-      setTunnelEnabled(tEnabled);
-      updateReachable(null, tunnelClientReachableRef, tunnelMissRef, setTunnelReachable, tunnelEverReachableRef, setTunnelEverReachable);
-
       const tsEn = data.tailscale?.settingsEnabled ?? data.tailscale?.enabled ?? false;
       const tsUrlVal = data.tailscale?.tunnelUrl || "";
       setTsUrl(tsUrlVal);
@@ -175,7 +156,6 @@ export default function APIPageClient({ machineId }) {
   };
 
   const loadSettings = async () => {
-    setTunnelChecking(true);
     try {
       const [settingsRes, statusRes] = await Promise.all([
         fetch("/api/settings"),
@@ -185,17 +165,9 @@ export default function APIPageClient({ machineId }) {
         const data = await settingsRes.json();
         setRequireLogin(data.requireLogin !== false);
         setHasPassword(data.hasPassword || false);
-        setTunnelDashboardAccess(data.tunnelDashboardAccess || false);
       }
       if (statusRes.ok) {
         const data = await statusRes.json();
-        const tEnabled = data.tunnel?.settingsEnabled ?? data.tunnel?.enabled ?? false;
-        const tUrl = data.tunnel?.tunnelUrl || "";
-        setTunnelUrl(tUrl);
-        setTunnelPublicUrl(data.tunnel?.publicUrl || "");
-        setTunnelEnabled(tEnabled);
-        updateReachable(null, tunnelClientReachableRef, tunnelMissRef, setTunnelReachable, tunnelEverReachableRef, setTunnelEverReachable);
-
         const tsEn = data.tailscale?.settingsEnabled ?? data.tailscale?.enabled ?? false;
         const tsUrlVal = data.tailscale?.tunnelUrl || "";
         setTsUrl(tsUrlVal);
@@ -204,24 +176,8 @@ export default function APIPageClient({ machineId }) {
       }
     } catch (error) {
       console.log("Error loading settings:", error);
-    } finally {
-      setTunnelChecking(false);
     }
   };
-
-  const handleTunnelDashboardAccess = async (value) => {
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tunnelDashboardAccess: value }),
-      });
-      if (res.ok) setTunnelDashboardAccess(value);
-    } catch (error) {
-      console.log("Error updating tunnelDashboardAccess:", error);
-    }
-  };
-
   const fetchData = async () => {
     try {
       const keysRes = await fetch("/api/keys");

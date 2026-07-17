@@ -74,8 +74,6 @@ const LOCAL_ONLY_PATHS = [
   "/api/tunnel/tailscale-enable",
   "/api/tunnel/tailscale-disable",
   "/api/tunnel/tailscale-check",
-  "/api/tunnel/enable",
-  "/api/tunnel/disable",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
   "/api/auth/reset-password",

@@ -46,8 +46,26 @@ function loadCliSecret() {
   return cachedCliSecret;
 }
 
+let cachedSalt = null;
+function loadMachineIdSalt() {
+  if (cachedSalt) return cachedSalt;
+  if (process.env.MACHINE_ID_SALT) {
+    cachedSalt = process.env.MACHINE_ID_SALT;
+    return cachedSalt;
+  }
+  const file = path.join(DATA_DIR, 'machine-id-salt');
+  try {
+    cachedSalt = fs.readFileSync(file, 'utf8').trim();
+    if (cachedSalt) return cachedSalt;
+  } catch {}
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  cachedSalt = crypto.randomBytes(16).toString('hex');
+  fs.writeFileSync(file, cachedSalt, { mode: 0o600 });
+  return cachedSalt;
+}
+
 export async function getConsistentMachineId(salt = null) {
-  const saltValue = salt || process.env.MACHINE_ID_SALT || 'endpoint-proxy-salt';
+  const saltValue = salt || loadMachineIdSalt();
   const raw = loadRawMachineId();
   const extra = saltValue === CLI_AUTH_SALT ? loadCliSecret() : '';
   return crypto.createHash('sha256').update(raw + saltValue + extra).digest('hex').substring(0, 16);

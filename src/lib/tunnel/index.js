@@ -1,21 +1,3 @@
-// Cloudflare service
-export {
-  enableTunnel,
-  disableTunnel,
-  getTunnelStatus,
-  isTunnelManuallyDisabled,
-  isTunnelReconnecting,
-  getTunnelService,
-  setTunnelUnexpectedExitCallback,
-} from "./cloudflare/manager.js";
-export {
-  killCloudflared,
-  isCloudflaredRunning,
-  ensureCloudflared,
-  getDownloadStatus,
-} from "./cloudflare/cloudflared.js";
-export { probeUrlAlive as probeCloudflareAlive } from "./cloudflare/healthCheck.js";
-
 // Tailscale service
 export {
   enableTailscale,

@@ -519,7 +519,7 @@ function isDaemonTunMode() {
   } catch { return null; }
 }
 
-/** Daemon process alive (independent of funnel state) — mirrors cloudflared PID check semantic. */
+/** Daemon process alive (independent of funnel state). */
 export function isDaemonAlive() {
   return isDaemonTunMode() !== null;
 }

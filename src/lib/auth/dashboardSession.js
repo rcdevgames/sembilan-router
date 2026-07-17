@@ -72,11 +72,14 @@ export function clearDashboardAuthCookie(cookieStore) {
 }
 
 // Verify the current dashboard password (re-auth for sensitive actions).
+let fallbackHash = null;
 export async function verifyDashboardPassword(password) {
   if (typeof password !== "string" || !password) return false;
   const settings = await getSettings();
   const storedHash = settings?.password;
   if (storedHash) return bcrypt.compare(password, storedHash);
+  // No stored hash yet — hash the fallback so we never do plaintext compare
   const initialPassword = process.env.INITIAL_PASSWORD || DEFAULT_PASSWORD;
-  return password === initialPassword;
+  if (!fallbackHash) fallbackHash = bcrypt.hashSync(initialPassword, 10);
+  return bcrypt.compare(password, fallbackHash);
 }

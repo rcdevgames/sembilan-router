@@ -1,6 +1,22 @@
-import crypto from "crypto";
+let cachedApiKeySecret = null;
+function loadApiKeySecret() {
+  if (cachedApiKeySecret) return cachedApiKeySecret;
+  if (process.env.API_KEY_SECRET) {
+    cachedApiKeySecret = process.env.API_KEY_SECRET;
+    return cachedApiKeySecret;
+  }
+  const file = path.join(DATA_DIR, "api-key-secret");
+  try {
+    cachedApiKeySecret = fs.readFileSync(file, "utf8").trim();
+    if (cachedApiKeySecret) return cachedApiKeySecret;
+  } catch {}
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  cachedApiKeySecret = crypto.randomBytes(32).toString("hex");
+  fs.writeFileSync(file, cachedApiKeySecret, { mode: 0o600 });
+  return cachedApiKeySecret;
+}
 
-const API_KEY_SECRET = process.env.API_KEY_SECRET || "endpoint-proxy-api-key-secret";
+const API_KEY_SECRET = loadApiKeySecret();
 
 /**
  * Generate 6-char random keyId

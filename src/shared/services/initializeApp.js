@@ -4,10 +4,9 @@ import { dirname, join } from "path";
 import { existsSync } from "fs";
 import { cleanupProviderConnections, getSettings, updateSettings, getApiKeys } from "@/lib/localDb";
 import {
-  enableTunnel, enableTailscale,
-  isTunnelManuallyDisabled, isTunnelReconnecting, isTailscaleReconnecting,
-  getTunnelService, getTailscaleService, setTunnelUnexpectedExitCallback,
-  killCloudflared, isCloudflaredRunning, ensureCloudflared,
+  enableTailscale,
+  isTailscaleReconnecting,
+  getTailscaleService,
   isTailscaleRunning, isTailscaleRunningStrict, isDaemonAlive, startFunnel,
   checkInternet,
   RESTART_COOLDOWN_MS, NETWORK_SETTLE_MS,
@@ -33,7 +32,7 @@ import { killAllBridges } from "@/lib/mcp/stdioSseBridge";
 process.setMaxListeners(20);
 
 // Defer heavy startup work so the first HTTP request (login → dashboard) isn't
-// starved by DB cleanup, cloudflared download, lsof/DNS probes and OAuth pings.
+// starved by DB cleanup, lsof/DNS probes and OAuth pings.
 const STARTUP_DEFER_MS = 3000;
 
 // Survive Next.js hot reload
@@ -52,12 +51,11 @@ const g = global.__appSingleton ??= {
 export async function initializeApp() {
   try {
     // Register cleanup + exit-respawn callback immediately so signals and
-    // unexpected cloudflared exits are handled even during the deferred window.
+    // tailscale exits are handled even during the deferred window.
     if (!g.signalHandlersRegistered) {
       const cleanup = () => {
         try { removeAllDNSEntriesSync(); } catch { /* best effort */ }
         try { killAllBridges(); } catch { /* best effort */ }
-        killCloudflared();
         process.exit();
       };
       process.on("SIGINT", cleanup);
@@ -65,10 +63,6 @@ export async function initializeApp() {
       process.on("exit", () => { try { removeAllDNSEntriesSync(); } catch { /* ignore */ } });
       g.signalHandlersRegistered = true;
     }
-
-    setTunnelUnexpectedExitCallback(() => {
-      safeRestartTunnel("unexpected-exit").catch(() => {});
-    });
 
     // Defer the heavy work — nothing here blocks incoming requests.
     setTimeout(() => {
@@ -83,21 +77,12 @@ async function runHeavyStartup() {
   await cleanupProviderConnections();
   const settings = await getSettings();
 
-  // Auto-resume tunnel (once per process)
-  if (settings.tunnelEnabled && !g.tunnelAutoResumed) {
-    g.tunnelAutoResumed = true;
-    console.log("[InitApp] Tunnel was enabled, auto-resuming...");
-    safeRestartTunnel("startup").catch((e) => console.log("[InitApp] Tunnel resume failed:", e.message));
-  }
-
   // Auto-resume tailscale (once per process)
   if (settings.tailscaleEnabled && !g.tailscaleAutoResumed) {
     g.tailscaleAutoResumed = true;
     console.log("[InitApp] Tailscale was enabled, auto-resuming...");
     safeRestartTailscale("startup").catch((e) => console.log("[InitApp] Tailscale resume failed:", e.message));
   }
-
-  if (settings.tunnelEnabled) ensureCloudflared().catch(() => {});
 
   if (settings.mitmEnabled) {
     // Sync mitmAlias DB → JSON cache so standalone MITM server can read it.
@@ -154,40 +139,9 @@ async function autoStartMitm(settings) {
 
 // Cooldown only applies to repeating watchdog ticks (anti hammer-loop).
 // Network/exit events are one-shot transitions → bypass to recover fast.
-const FORCE_RESTART_REASONS = /^(startup|netchange|sleep|sleep\+netchange|online|unexpected-exit)$/;
+const FORCE_RESTART_REASONS = /^(startup|netchange|sleep|sleep\+netchange|online)$/;
 
 // ─── Safe restart (4 guards: spawn / cooldown / alive / internet) ────────────
-
-async function safeRestartTunnel(reason) {
-  const svc = getTunnelService();
-  const settings = await getSettings();
-  if (!settings.tunnelEnabled) return;
-  if (svc.cancelToken.cancelled) return;
-  if (svc.spawnInProgress) return;
-
-  const force = FORCE_RESTART_REASONS.test(reason);
-
-  // Process alive = trust cloudflared (self-reconnects via --retries 99, keeps same URL).
-  // Killing a live process on network change drops the tunnel and rotates the quick-tunnel URL.
-  if (isCloudflaredRunning()) return;
-
-  if (!force && Date.now() - svc.lastRestartAt < RESTART_COOLDOWN_MS) {
-    console.log(`[Tunnel] degraded but cooldown active, skip (${reason})`);
-    return;
-  }
-  if (!await checkInternet()) return;
-
-  console.log(`[Tunnel] safeRestart (${reason}) — tunnel unreachable${force ? " [force]" : ""}`);
-  try {
-    await enableTunnel();
-    svc.lastRestartAt = Date.now();
-    console.log("[Tunnel] restart success");
-  } catch (err) {
-    if (!/cloudflared killed|tunnel cancelled/.test(err.message)) {
-      console.log("[Tunnel] restart failed:", err.message);
-    }
-  }
-}
 
 async function safeRestartTailscale(reason) {
   const svc = getTailscaleService();

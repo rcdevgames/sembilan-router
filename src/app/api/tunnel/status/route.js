@@ -1,23 +1,21 @@
 import { NextResponse } from "next/server";
-import { getTunnelStatus, getTailscaleStatus, getDownloadStatus } from "@/lib/tunnel";
+import { getTailscaleStatus } from "@/lib/tunnel";
 
-const STATUS_CACHE_TTL_MS = 3000; // coalesce rapid polls; underlying probes already cache 10s
-
-// Survive hot reload; one cache per process. Only tunnel/tailscale probes are cached —
-// download progress stays live so the enable/download UI updates smoothly.
+// Survive hot reload; one cache per process.
 const statusCache = (global.__tunnelStatusCache ??= { value: null, fetchedAt: 0 });
 
+const STATUS_CACHE_TTL_MS = 3000; // coalesce rapid polls
+
+// Tailscale-only — Cloudflare tunnel removed (use Tailscale per project policy).
 export async function GET() {
   try {
-    let probes = statusCache.value;
-    if (!probes || Date.now() - statusCache.fetchedAt >= STATUS_CACHE_TTL_MS) {
-      const [tunnel, tailscale] = await Promise.all([getTunnelStatus(), getTailscaleStatus()]);
-      probes = { tunnel, tailscale };
-      statusCache.value = probes;
+    let tailscale = statusCache.value;
+    if (!tailscale || Date.now() - statusCache.fetchedAt >= STATUS_CACHE_TTL_MS) {
+      tailscale = await getTailscaleStatus();
+      statusCache.value = tailscale;
       statusCache.fetchedAt = Date.now();
     }
-    const download = getDownloadStatus();
-    return NextResponse.json({ ...probes, download });
+    return NextResponse.json({ tunnel: null, tailscale });
   } catch (error) {
     console.error("Tunnel status error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
