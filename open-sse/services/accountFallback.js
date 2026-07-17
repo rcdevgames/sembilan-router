@@ -213,3 +213,40 @@ export function applyErrorState(account, status, errorText) {
     status: "error"
   };
 }
+
+// Some providers return HTTP 200 but embed a quota/rate-limit error in the JSON
+// body (e.g. {"code":"1308","message":"Usage limit reached for 5 hour..."} or
+// {"error":{"message":"model is rate limited until ..."}}). These must trigger
+// combo/account fallback just like a real 429, otherwise the AI agent stalls.
+//
+// Returns the extracted error message string when matched, or null when the body
+// is a legitimate success response.
+const EMBEDDED_ERROR_PATTERNS = [
+  "rate limit",
+  "rate limited",
+  "too many requests",
+  "quota exceeded",
+  "usage limit",
+  "limit reached",
+  "capacity",
+  "overloaded",
+];
+
+export function detectErrorInResponseBody(body) {
+  if (!body || typeof body !== "object") return null;
+
+  // Standard error envelope: { error: { message } } or { error: "..." }
+  const errField = body.error;
+  const msg =
+    (typeof errField === "string" && errField) ||
+    (errField && typeof errField.message === "string" && errField.message) ||
+    (typeof body.message === "string" && body.message) ||
+    "";
+
+  if (!msg) return null;
+  const lower = msg.toLowerCase();
+  for (const pat of EMBEDDED_ERROR_PATTERNS) {
+    if (lower.includes(pat)) return msg;
+  }
+  return null;
+}
