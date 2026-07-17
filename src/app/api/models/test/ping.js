@@ -189,5 +189,17 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
     };
   }
 
+  // Treat empty / no-content responses as failures (not success).
+  const choice = parsed.choices[0];
+  const rawContent = choice?.message?.content ?? choice?.delta?.content ?? choice?.text ?? "";
+  const textContent = typeof rawContent === "string"
+    ? rawContent
+    : Array.isArray(rawContent)
+      ? rawContent.map((b) => (typeof b === "string" ? b : b?.text || "")).join("")
+      : "";
+  if (!textContent.trim()) {
+    return { ok: false, latencyMs, status: res.status, error: "Provider returned an empty response (no content)" };
+  }
+
   return { ok: true, latencyMs, error: null, status: res.status };
 }
