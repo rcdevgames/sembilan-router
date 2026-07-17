@@ -10,7 +10,6 @@ export const APP_CONFIG = {
 // GitHub configuration
 export const GITHUB_CONFIG = {
   changelogUrl: "https://raw.githubusercontent.com/rcdevgames/sembilan-router/refs/heads/deploy/CHANGELOG.md",
-  donateUrl: "",
 };
 
 // Updater configuration
