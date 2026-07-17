@@ -22,6 +22,11 @@ export default function APIPageClient({ machineId }) {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyExpiry, setNewKeyExpiry] = useState("");
+  const [newKeyMaxTokens, setNewKeyMaxTokens] = useState("");
+  const [newKeyMaxRequests, setNewKeyMaxRequests] = useState("");
+  const [newKeyModel, setNewKeyModel] = useState("");
+  const [availableModels, setAvailableModels] = useState([]);
   const [createdKey, setCreatedKey] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
@@ -607,22 +612,56 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
+  const loadAvailableModels = useCallback(async () => {
+    try {
+      const [combosRes, wlRes] = await Promise.all([fetch("/api/combos"), fetch("/api/models/whitelist")]);
+      const combosData = await combosRes.json();
+      const wlData = await wlRes.json();
+      const comboNames = (combosData.combos || []).filter((c) => !c.kind || c.kind === "llm").map((c) => c.name);
+      const wl = wlData.models || [];
+      setAvailableModels(Array.from(new Set([...comboNames, ...wl])));
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadAvailableModels(); }, [loadAvailableModels]);
+
+  const resetNewKeyForm = () => {
+    setNewKeyName("");
+    setNewKeyExpiry("");
+    setNewKeyMaxTokens("");
+    setNewKeyMaxRequests("");
+    setNewKeyModel("");
+  };
+
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;
+
+    // Mutual exclusivity: maxTokens wins if both provided.
+    const mt = newKeyMaxTokens.trim();
+    const mr = newKeyMaxRequests.trim();
+    const payload = {
+      name: newKeyName,
+      expiresAt: newKeyExpiry ? new Date(newKeyExpiry).toISOString() : null,
+      maxTokens: mt ? Number(mt) : null,
+      maxRequests: !mt && mr ? Number(mr) : null,
+      allowedModels: newKeyModel ? [newKeyModel] : [],
+    };
 
     try {
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newKeyName }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
       if (res.ok) {
         setCreatedKey(data.key);
         await fetchData();
-        setNewKeyName("");
+        resetNewKeyForm();
         setShowAddModal(false);
+      } else {
+        alert(data.error || "Failed to create key");
       }
     } catch (error) {
       console.log("Error creating key:", error);
@@ -1024,6 +1063,30 @@ export default function APIPageClient({ machineId }) {
                   <p className="text-xs text-text-muted mt-1">
                     Created {new Date(key.createdAt).toLocaleDateString()}
                   </p>
+                  {(key.allowedModels?.length || key.maxTokens || key.maxRequests || key.expiresAt) && (
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {key.allowedModels && key.allowedModels.length > 0 ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono" title="Assigned model">model: {key.allowedModels[0]}</span>
+                      ) : (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/5 text-text-muted">all models</span>
+                      )}
+                      {key.maxTokens ? (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${key.usage?.totalTokens >= key.maxTokens ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-600 dark:text-green-400"}`}>
+                          tokens {key.usage?.totalTokens || 0}/{key.maxTokens}
+                        </span>
+                      ) : null}
+                      {key.maxRequests ? (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${key.usage?.totalRequests >= key.maxRequests ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-600 dark:text-green-400"}`}>
+                          req {key.usage?.totalRequests || 0}/{key.maxRequests}
+                        </span>
+                      ) : null}
+                      {key.expiresAt ? (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${new Date(key.expiresAt).getTime() < Date.now() ? "bg-red-500/10 text-red-500" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"}`}>
+                          exp {new Date(key.expiresAt).toLocaleDateString()}
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
                   {key.isActive === false && (
                     <p className="text-xs text-orange-500 mt-1">Paused</p>
                   )}
@@ -1067,7 +1130,7 @@ export default function APIPageClient({ machineId }) {
         title="Create API Key"
         onClose={() => {
           setShowAddModal(false);
-          setNewKeyName("");
+          resetNewKeyForm();
         }}
       >
         <div className="flex flex-col gap-4">
@@ -1077,6 +1140,65 @@ export default function APIPageClient({ machineId }) {
             onChange={(e) => setNewKeyName(e.target.value)}
             placeholder="Production Key"
           />
+
+          {/* Expiry */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium">Expiry Date (optional)</label>
+            <Input
+              type="datetime-local"
+              value={newKeyExpiry}
+              onChange={(e) => setNewKeyExpiry(e.target.value)}
+            />
+          </div>
+
+          {/* Limits — mutually exclusive */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium">Max Tokens</label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="e.g. 1000000"
+                value={newKeyMaxTokens}
+                onChange={(e) => {
+                  setNewKeyMaxTokens(e.target.value);
+                  if (e.target.value) setNewKeyMaxRequests("");
+                }}
+                disabled={!!newKeyMaxRequests}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium">Max Requests</label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="e.g. 500"
+                value={newKeyMaxRequests}
+                onChange={(e) => {
+                  setNewKeyMaxRequests(e.target.value);
+                  if (e.target.value) setNewKeyMaxTokens("");
+                }}
+                disabled={!!newKeyMaxTokens}
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-text-muted -mt-2">Token &amp; Request limits are mutually exclusive. Lifetime — when exhausted, revoke and create a new key.</p>
+
+          {/* Assigned model (max 1; empty = default/all) */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium">Assigned Model (optional — max 1; empty = all combos + whitelist)</label>
+            <select
+              value={newKeyModel}
+              onChange={(e) => setNewKeyModel(e.target.value)}
+              className="w-full px-3 py-2 bg-surface border border-border rounded text-sm"
+            >
+              <option value="">Default (all models)</option>
+              {availableModels.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex gap-2">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
               Create
@@ -1084,7 +1206,7 @@ export default function APIPageClient({ machineId }) {
             <Button
               onClick={() => {
                 setShowAddModal(false);
-                setNewKeyName("");
+                resetNewKeyForm();
               }}
               variant="ghost"
               fullWidth
