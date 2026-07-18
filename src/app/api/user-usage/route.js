@@ -8,7 +8,10 @@ export async function GET(request) {
 
   const key = await getApiKeyByKey(apiKey);
   if (!key) return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
-  if (key.isActive === false) return NextResponse.json({ error: "API key is disabled" }, { status: 403 });
+
+  if (key.isActive === false) {
+    return NextResponse.json({ error: "API key is disabled" }, { status: 403 });
+  }
 
   if (key.expiresAt) {
     const exp = new Date(key.expiresAt).getTime();
@@ -18,9 +21,9 @@ export async function GET(request) {
   }
 
   const usage = await getApiKeyUsageTotals(apiKey);
-
-  // Recent 50 usage history rows for this key
   const history = await getUsageHistory({ apiKey });
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${request.headers.get("x-forwarded-proto") || "http"}://${request.headers.get("host") || "localhost:20128"}`;
 
   return NextResponse.json({
     key: {
@@ -30,13 +33,12 @@ export async function GET(request) {
       maxTokens: key.maxTokens || null,
       maxRequests: key.maxRequests || null,
       expiresAt: key.expiresAt || null,
-      createdAt: key.createdAt,
     },
     usage: {
       totalTokens: usage.totalTokens,
       totalRequests: usage.totalRequests,
     },
-    history: history.slice(-50).reverse(),
-    endpoint: process.env.NEXT_PUBLIC_BASE_URL || `${request.headers.get("x-forwarded-proto") || "http"}://${request.headers.get("host") || "localhost:20128"}`,
+    history: history.slice(-10).reverse(),
+    endpoint: `${baseUrl}/v1`,
   });
 }
