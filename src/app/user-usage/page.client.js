@@ -90,69 +90,109 @@ export default function UserUsagePageClient() {
   const reqPct = key.maxRequests ? Math.round((usage.totalRequests / key.maxRequests) * 100) : null;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      <h1 className="text-xl font-bold mb-6">User Usage</h1>
+    <div className="min-h-screen bg-bg p-4 relative overflow-hidden">
+      <div className="landing-grid absolute inset-0 pointer-events-none -z-10" aria-hidden="true" />
+      <div className="relative z-10 max-w-2xl mx-auto py-6">
+        <h1 className="text-xl font-bold mb-6">User Usage</h1>
 
-      <div className="grid gap-3 mb-6">
-        <Row label="Endpoint" value={endpoint} onCopy={() => copy(endpoint, "endpoint")} copied={copied === "endpoint"} />
-        <Row label="API Key" value={key.key} onCopy={() => copy(key.key, "apikey")} copied={copied === "apikey"} mono />
-        <Row label="Model" value={key.allowedModels?.length ? key.allowedModels.join(", ") : "All models"} onCopy={() => copy(key.allowedModels?.length ? key.allowedModels.join(", ") : "All models", "model")} copied={copied === "model"} />
-        <Row label="Expires" value={key.expiresAt ? fmtCountdown(new Date(key.expiresAt).getTime() - now) : "Unlimited"} />
-      </div>
+        <Card className="mb-8">
+          {/* Endpoint Section */}
+          <Section title="Endpoint">
+            <InfoRow label="URL" value={endpoint} onCopy={() => copy(endpoint, "endpoint")} copied={copied === "endpoint"} />
+          </Section>
 
-      <Card className="mb-6">
-        <h2 className="text-sm font-semibold mb-3">Quota</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <QuotaBar label="Tokens" used={usage.totalTokens} max={key.maxTokens} pct={tokenPct} />
-          <QuotaBar label="Requests" used={usage.totalRequests} max={key.maxRequests} pct={reqPct} />
+          <Divider />
+
+          {/* API Key Section */}
+          <Section title="API Key">
+            <InfoRow label="Key" value={key.key} onCopy={() => copy(key.key, "apikey")} copied={copied === "apikey"} mono />
+            <InfoRow label="Expires" value={key.expiresAt ? fmtCountdown(new Date(key.expiresAt).getTime() - now) : "Unlimited"} />
+          </Section>
+
+          <Divider />
+
+          {/* Model Section */}
+          <Section title="Model">
+            <InfoRow 
+              label="Assigned" 
+              value={key.allowedModels?.length ? key.allowedModels.join(", ") : "All models"} 
+              onCopy={() => copy(key.allowedModels?.length ? key.allowedModels.join(", ") : "All models", "model")} 
+              copied={copied === "model"} 
+            />
+          </Section>
+
+          <Divider />
+
+          {/* Quota Section */}
+          <Section title="Quota">
+            <div className="grid grid-cols-2 gap-4">
+              <QuotaBar label="Tokens" used={usage.totalTokens} max={key.maxTokens} pct={tokenPct} />
+              <QuotaBar label="Requests" used={usage.totalRequests} max={key.maxRequests} pct={reqPct} />
+            </div>
+            {!key.maxTokens && !key.maxRequests && <p className="text-text-muted text-xs mt-2">No quota limit set.</p>}
+          </Section>
+
+          <Divider />
+
+          {/* Usage History Section */}
+          <Section title="Usage History">
+            {history.length === 0 ? (
+              <p className="text-text-muted text-xs">No usage recorded yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead><tr className="border-b border-border">
+                    <th className="text-left py-2 px-2 text-text-muted font-medium">Time</th>
+                    <th className="text-left py-2 px-2 text-text-muted font-medium">Model</th>
+                    <th className="text-right py-2 px-2 text-text-muted font-medium">Tokens</th>
+                    <th className="text-right py-2 px-2 text-text-muted font-medium">Status</th>
+                  </tr></thead>
+                  <tbody>
+                    {history.slice(0, 10).map((h, i) => (
+                      <tr key={i} className="border-b border-border/50 last:border-0">
+                        <td className="py-2 px-2 whitespace-nowrap">{new Date(h.timestamp).toLocaleString()}</td>
+                        <td className="py-2 px-2 font-mono text-[11px]">{h.model}</td>
+                        <td className="py-2 px-2 text-right font-mono">{(h.tokens?.prompt_tokens || 0) + (h.tokens?.completion_tokens || 0)}</td>
+                        <td className="py-2 px-2 text-right">{h.status || "ok"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
+        </Card>
+
+        <div className="flex justify-center">
+          <Button variant="ghost" onClick={() => { setData(null); setApiKey(""); }}>Logout</Button>
         </div>
-        {!key.maxTokens && !key.maxRequests && <p className="text-text-muted text-xs mt-2">No quota limit set.</p>}
-      </Card>
-
-      <Card className="mb-8">
-        <h2 className="text-sm font-semibold mb-3">Usage History</h2>
-        {history.length === 0 ? (
-          <p className="text-text-muted text-xs">No usage recorded yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead><tr className="border-b border-border">
-                <th className="text-left py-2 px-2 text-text-muted font-medium">Time</th>
-                <th className="text-left py-2 px-2 text-text-muted font-medium">Model</th>
-                <th className="text-right py-2 px-2 text-text-muted font-medium">Tokens</th>
-                <th className="text-right py-2 px-2 text-text-muted font-medium">Status</th>
-              </tr></thead>
-              <tbody>
-                {history.slice(0, 10).map((h, i) => (
-                  <tr key={i} className="border-b border-border/50 last:border-0">
-                    <td className="py-2 px-2 whitespace-nowrap">{new Date(h.timestamp).toLocaleString()}</td>
-                    <td className="py-2 px-2 font-mono text-[11px]">{h.model}</td>
-                    <td className="py-2 px-2 text-right font-mono">{(h.tokens?.prompt_tokens || 0) + (h.tokens?.completion_tokens || 0)}</td>
-                    <td className="py-2 px-2 text-right">{h.status || "ok"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      <div className="flex justify-center">
-        <Button variant="ghost" onClick={() => { setData(null); setApiKey(""); }}>Logout</Button>
       </div>
     </div>
   );
 }
 
-function Row({ label, value, onCopy, copied, mono }) {
+function Section({ title, children }) {
   return (
-    <div className="bg-card rounded-xl border border-border px-4 py-3 flex items-center justify-between gap-2">
+    <div className="py-4">
+      <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function Divider() {
+  return <div className="border-t border-border/50" />;
+}
+
+function InfoRow({ label, value, onCopy, copied, mono }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-1.5">
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] text-text-muted uppercase tracking-wide mb-0.5">{label}</p>
+        <p className="text-xs text-text-muted mb-0.5">{label}</p>
         <p className={`text-sm font-medium truncate ${mono ? "font-mono" : ""}`}>{value}</p>
       </div>
       {onCopy && (
-        <button onClick={onCopy} className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition" title="Copy">
+        <button onClick={onCopy} className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition shrink-0" title="Copy">
           <span className="material-symbols-outlined text-[16px]">{copied ? "check" : "content_copy"}</span>
         </button>
       )}
