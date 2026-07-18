@@ -91,7 +91,13 @@ export default function UserUsagePageClient() {
 
   return (
     <div className="min-h-screen bg-bg p-4 relative overflow-hidden">
-      <div className="landing-grid absolute inset-0 pointer-events-none -z-10" aria-hidden="true" />
+      <div className="absolute inset-0 pointer-events-none -z-0" style={{
+        backgroundImage: `
+          linear-gradient(to right, rgba(59, 130, 246, 0.15) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(59, 130, 246, 0.15) 1px, transparent 1px)
+        `,
+        backgroundSize: '40px 40px'
+      }} />
       <div className="relative z-10 max-w-2xl mx-auto py-6">
         <h1 className="text-xl font-bold mb-6">User Usage</h1>
 
@@ -164,7 +170,12 @@ export default function UserUsagePageClient() {
         </Card>
 
         <div className="flex justify-center">
-          <Button variant="ghost" onClick={() => { setData(null); setApiKey(""); }}>Logout</Button>
+          <button 
+            onClick={() => { setData(null); setApiKey(""); }}
+            className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
+          >
+            Logout
+          </button>
         </div>
       </div>
     </div>
@@ -174,14 +185,14 @@ export default function UserUsagePageClient() {
 function Section({ title, children }) {
   return (
     <div className="py-4">
-      <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">{title}</h3>
+      <h3 className="text-xs font-semibold text-primary uppercase tracking-wide mb-3">{title}</h3>
       {children}
     </div>
   );
 }
 
 function Divider() {
-  return <div className="border-t border-border/50" />;
+  return <div className="border-t border-border" />;
 }
 
 function InfoRow({ label, value, onCopy, copied, mono }) {
