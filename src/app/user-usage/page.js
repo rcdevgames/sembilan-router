@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Card, Button, Input } from "@/shared/components";
 
 function fmtCountdown(ms) {
   if (ms <= 0) return "expired";
@@ -12,14 +13,6 @@ function fmtCountdown(ms) {
   if (d > 0) return `${d}d ${h}h ${m}m`;
   if (h > 0) return `${h}h ${m}m ${sec}s`;
   return `${m}m ${sec}s`;
-}
-
-function CopyIcon({ onClick, className = "" }) {
-  return (
-    <button onClick={onClick} className={`p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all ${className}`} title="Copy">
-      <span className="material-symbols-outlined text-[14px]">content_copy</span>
-    </button>
-  );
 }
 
 export default function UserUsagePage() {
@@ -49,9 +42,7 @@ export default function UserUsagePage() {
       const json = await res.json();
       if (!res.ok) { setError(json.error || "Request failed"); setData(null); }
       else {
-        // Block access if key is disabled
         if (json.key.isActive === false) { setError("API key is disabled"); setData(null); return; }
-        // Block if expired
         if (json.key.expiresAt && new Date(json.key.expiresAt).getTime() <= Date.now()) { setError("API key has expired"); setData(null); return; }
         setData(json); setError("");
       }
@@ -59,24 +50,41 @@ export default function UserUsagePage() {
     finally { setLoading(false); }
   }, [apiKey]);
 
+  // --- LOGIN FORM (matches login page design) ---
   if (!data) {
     return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
-        <form onSubmit={(e) => { e.preventDefault(); fetchUsage(); }} className="bg-card p-6 sm:p-8 rounded-xl border border-border w-full max-w-sm shadow-lg">
-          <h1 className="text-lg font-semibold mb-1">User Usage</h1>
-          <p className="text-text-muted text-xs mb-4">Enter your API key to view usage details.</p>
-          <input type="password" placeholder="sr-xxxx-..." value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2.5 text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:ring-1 focus:ring-primary mb-3" />
-          <button type="submit" disabled={loading || !apiKey.trim()}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50 disabled:cursor-default">
-            {loading ? "Loading..." : "View Usage"}
-          </button>
-          {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
-        </form>
+      <div className="min-h-screen flex items-center justify-center bg-bg p-4 relative overflow-hidden">
+        <div className="landing-grid absolute inset-0 pointer-events-none" aria-hidden="true" />
+        <div className="relative z-10 w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-primary mb-2">Sembilan Router</h1>
+            <p className="text-text-muted">Enter your API key to view usage details.</p>
+          </div>
+          <Card>
+            <form onSubmit={(e) => { e.preventDefault(); fetchUsage(); }} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">API Key</label>
+                <Input
+                  type="password"
+                  placeholder="sr-xxxx-xxxx-xxxxxxxx"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  required
+                  autoFocus
+                />
+                {error && <p className="text-xs text-red-500">{error}</p>}
+              </div>
+              <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={!apiKey.trim()}>
+                View Usage
+              </Button>
+            </form>
+          </Card>
+        </div>
       </div>
     );
   }
 
+  // --- DASHBOARD ---
   const { key, usage, history, endpoint } = data;
   const tokenPct = key.maxTokens ? Math.round((usage.totalTokens / key.maxTokens) * 100) : null;
   const reqPct = key.maxRequests ? Math.round((usage.totalRequests / key.maxRequests) * 100) : null;
@@ -86,26 +94,23 @@ export default function UserUsagePage() {
       <div className="max-w-2xl mx-auto px-4 py-6">
         <h1 className="text-xl font-bold mb-6">User Usage</h1>
 
-        {/* Info cards */}
-        <div className="grid gap-4 mb-6">
+        <div className="grid gap-3 mb-6">
           <Row label="Endpoint" value={endpoint} onCopy={() => copy(endpoint, "endpoint")} copied={copied === "endpoint"} />
           <Row label="API Key" value={key.key} onCopy={() => copy(key.key, "apikey")} copied={copied === "apikey"} mono />
           <Row label="Model" value={key.allowedModels?.length ? key.allowedModels.join(", ") : "All models"} onCopy={() => copy(key.allowedModels?.length ? key.allowedModels.join(", ") : "All models", "model")} copied={copied === "model"} />
           <Row label="Expires" value={key.expiresAt ? fmtCountdown(new Date(key.expiresAt).getTime() - now) : "Unlimited"} />
         </div>
 
-        {/* Quota */}
-        <div className="bg-card rounded-xl border border-border p-4 mb-6">
+        <Card className="mb-6">
           <h2 className="text-sm font-semibold mb-3">Quota</h2>
           <div className="grid grid-cols-2 gap-4">
             <QuotaBar label="Tokens" used={usage.totalTokens} max={key.maxTokens} pct={tokenPct} />
             <QuotaBar label="Requests" used={usage.totalRequests} max={key.maxRequests} pct={reqPct} />
           </div>
           {!key.maxTokens && !key.maxRequests && <p className="text-text-muted text-xs mt-2">No quota limit set.</p>}
-        </div>
+        </Card>
 
-        {/* Usage History */}
-        <div className="bg-card rounded-xl border border-border p-4 mb-8">
+        <Card className="mb-8">
           <h2 className="text-sm font-semibold mb-3">Usage History</h2>
           {history.length === 0 ? (
             <p className="text-text-muted text-xs">No usage recorded yet.</p>
@@ -131,14 +136,10 @@ export default function UserUsagePage() {
               </table>
             </div>
           )}
-        </div>
+        </Card>
 
-        {/* Logout button centered */}
         <div className="flex justify-center">
-          <button onClick={() => { setData(null); setApiKey(""); }}
-            className="px-6 py-2 text-sm text-text-muted hover:text-red-500 border border-border rounded-lg hover:border-red-500/30 transition">
-            Logout
-          </button>
+          <Button variant="ghost" onClick={() => { setData(null); setApiKey(""); }}>Logout</Button>
         </div>
       </div>
     </div>
@@ -147,7 +148,7 @@ export default function UserUsagePage() {
 
 function Row({ label, value, onCopy, copied, mono }) {
   return (
-    <div className="bg-card rounded-xl border border-border px-4 py-3 group flex items-center justify-between gap-2">
+    <div className="bg-card rounded-xl border border-border px-4 py-3 flex items-center justify-between gap-2">
       <div className="min-w-0 flex-1">
         <p className="text-[11px] text-text-muted uppercase tracking-wide mb-0.5">{label}</p>
         <p className={`text-sm font-medium truncate ${mono ? "font-mono" : ""}`}>{value}</p>
