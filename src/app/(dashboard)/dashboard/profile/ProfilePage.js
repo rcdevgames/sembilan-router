@@ -38,14 +38,6 @@ export default function ProfilePage() {
   const [dbAuth, setDbAuth] = useState({ open: false, mode: "", password: "" });
   const pendingImportRef = useRef(null);
   const importFileRef = useRef(null);
-  const [proxyForm, setProxyForm] = useState({
-    outboundProxyEnabled: false,
-    outboundProxyUrl: "",
-    outboundNoProxy: "",
-  });
-  const [proxyStatus, setProxyStatus] = useState({ type: "", message: "" });
-  const [proxyLoading, setProxyLoading] = useState(false);
-  const [proxyTestLoading, setProxyTestLoading] = useState(false);
 
   useEffect(() => {
     setLocale(getLocaleFromCookie());
@@ -56,11 +48,6 @@ export default function ProfilePage() {
       .then((res) => res.json())
       .then((data) => {
         setSettings(data);
-        setProxyForm({
-          outboundProxyEnabled: data?.outboundProxyEnabled === true,
-          outboundProxyUrl: data?.outboundProxyUrl || "",
-          outboundNoProxy: data?.outboundNoProxy || "",
-        });
         setLoading(false);
       })
       .catch((err) => {
@@ -68,103 +55,6 @@ export default function ProfilePage() {
         setLoading(false);
       });
   }, []);
-
-  const updateOutboundProxy = async (e) => {
-    e.preventDefault();
-    if (settings.outboundProxyEnabled !== true) return;
-    setProxyLoading(true);
-    setProxyStatus({ type: "", message: "" });
-
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          outboundProxyUrl: proxyForm.outboundProxyUrl,
-          outboundNoProxy: proxyForm.outboundNoProxy,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setSettings((prev) => ({ ...prev, ...data }));
-        setProxyStatus({ type: "success", message: "Proxy settings applied" });
-      } else {
-        setProxyStatus({ type: "error", message: data.error || "Failed to update proxy settings" });
-      }
-    } catch (err) {
-      setProxyStatus({ type: "error", message: "An error occurred" });
-    } finally {
-      setProxyLoading(false);
-    }
-  };
-
-  const testOutboundProxy = async () => {
-    if (settings.outboundProxyEnabled !== true) return;
-
-    const proxyUrl = (proxyForm.outboundProxyUrl || "").trim();
-    if (!proxyUrl) {
-      setProxyStatus({ type: "error", message: "Please enter a Proxy URL to test" });
-      return;
-    }
-
-    setProxyTestLoading(true);
-    setProxyStatus({ type: "", message: "" });
-
-    try {
-      const res = await fetch("/api/settings/proxy-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proxyUrl }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data?.ok) {
-        setProxyStatus({
-          type: "success",
-          message: `Proxy test OK (${data.status}) in ${data.elapsedMs}ms`,
-        });
-      } else {
-        setProxyStatus({
-          type: "error",
-          message: data?.error || "Proxy test failed",
-        });
-      }
-    } catch (err) {
-      setProxyStatus({ type: "error", message: "An error occurred" });
-    } finally {
-      setProxyTestLoading(false);
-    }
-  };
-
-  const updateOutboundProxyEnabled = async (outboundProxyEnabled) => {
-    setProxyLoading(true);
-    setProxyStatus({ type: "", message: "" });
-
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outboundProxyEnabled }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setSettings((prev) => ({ ...prev, ...data }));
-        setProxyForm((prev) => ({ ...prev, outboundProxyEnabled: data?.outboundProxyEnabled === true }));
-        setProxyStatus({
-          type: "success",
-          message: outboundProxyEnabled ? "Proxy enabled" : "Proxy disabled",
-        });
-      } else {
-        setProxyStatus({ type: "error", message: data.error || "Failed to update proxy settings" });
-      }
-    } catch (err) {
-      setProxyStatus({ type: "error", message: "An error occurred" });
-    } finally {
-      setProxyLoading(false);
-    }
-  };
 
   const handleUsernameChange = async (e) => {
     e.preventDefault();
@@ -755,78 +645,6 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        {/* Network */}
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">wifi</span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold">Network</h3>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Outbound Proxy</p>
-                <p className="text-xs sm:text-sm text-text-muted">Enable proxy for OAuth + provider outbound requests.</p>
-              </div>
-              <Toggle
-                checked={settings.outboundProxyEnabled === true}
-                onChange={() => updateOutboundProxyEnabled(!(settings.outboundProxyEnabled === true))}
-                disabled={loading || proxyLoading}
-              />
-            </div>
-
-            {settings.outboundProxyEnabled === true && (
-              <form onSubmit={updateOutboundProxy} className="flex flex-col gap-4 pt-2 border-t border-border/50">
-                <div className="flex flex-col gap-2">
-                  <label className="font-medium text-sm sm:text-base">Proxy URL</label>
-                  <Input
-                    placeholder="http://127.0.0.1:7897"
-                    value={proxyForm.outboundProxyUrl}
-                    onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundProxyUrl: e.target.value }))}
-                    disabled={loading || proxyLoading}
-                  />
-                  <p className="text-xs sm:text-sm text-text-muted">Leave empty to inherit existing env proxy (if any).</p>
-                </div>
-
-                <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
-                  <label className="font-medium text-sm sm:text-base">No Proxy</label>
-                  <Input
-                    placeholder="localhost,127.0.0.1"
-                    value={proxyForm.outboundNoProxy}
-                    onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundNoProxy: e.target.value }))}
-                    disabled={loading || proxyLoading}
-                  />
-                  <p className="text-xs sm:text-sm text-text-muted">Comma-separated hostnames/domains to bypass the proxy.</p>
-                </div>
-
-                <div className="pt-2 border-t border-border/50 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    loading={proxyTestLoading}
-                    disabled={loading || proxyLoading}
-                    onClick={testOutboundProxy}
-                    className="w-full sm:w-auto"
-                  >
-                    Test proxy URL
-                  </Button>
-                  <Button type="submit" variant="primary" loading={proxyLoading} className="w-full sm:w-auto">
-                    Apply
-                  </Button>
-                </div>
-              </form>
-            )}
-
-            {proxyStatus.message && (
-              <p className={`text-xs sm:text-sm ${proxyStatus.type === "error" ? "text-red-500" : "text-green-500"} pt-2 border-t border-border/50`}>
-                {proxyStatus.message}
-              </p>
-            )}
-          </div>
-        </Card>
-
         {/* Observability Settings */}
         <Card>
           <div className="flex items-center gap-3 mb-4">
@@ -890,8 +708,8 @@ export default function ProfilePage() {
         isOpen={shutdownOpen}
         onClose={() => setShutdownOpen(false)}
         onConfirm={handleShutdown}
-        title="Close Proxy"
-        message="Are you sure you want to close the proxy server?"
+        title="Close Server"
+        message="Are you sure you want to close the server?"
         confirmText="Close"
         cancelText="Cancel"
         variant="danger"

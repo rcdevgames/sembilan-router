@@ -67,6 +67,10 @@ export const ERROR_RULES = [
   { text: "capacity",                 backoff: true },
   { text: "overloaded",               backoff: true },
 
+  // --- Token limit (model maxed output) — treat as transient fallback ---
+  { text: "maximum output token limit", cooldownMs: 5 * 1000 },
+  { text: "max_tokens",                cooldownMs: 10 * 1000 },
+
   // --- Status-based rules (fallback when text doesn't match) ---
   { status: 401, cooldownMs: COOLDOWN.long },
   { status: 402, cooldownMs: COOLDOWN.long },

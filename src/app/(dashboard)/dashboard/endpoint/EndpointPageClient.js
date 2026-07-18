@@ -31,6 +31,27 @@ export default function APIPageClient({ machineId }) {
   const [requireLogin, setRequireLogin] = useState(true);
   const [hasPassword, setHasPassword] = useState(true);
 
+  // Realtime countdown ticker (1s tick drives expiry countdowns)
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Format remaining time to expiry as max-3-unit countdown (d/h/m or h/m/s)
+  // ponytail: handles only d/h/m/s; expand if you need weeks/years.
+  const fmtCountdown = (ms) => {
+    if (ms <= 0) return "expired";
+    const s = Math.floor(ms / 1000);
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (d > 0) return `${d}d ${h}h ${m}m`;
+    if (h > 0) return `${h}h ${m}m ${sec}s`;
+    return `${m}m ${sec}s`;
+  };
+
   // Tailscale state
   const [tsEnabled, setTsEnabled] = useState(false);
   const [tsReachable, setTsReachable] = useState(false);
@@ -446,7 +467,7 @@ export default function APIPageClient({ machineId }) {
     const mr = newKeyMaxRequests.trim();
     const payload = {
       name: newKeyName,
-      expiresAt: newKeyExpiry ? new Date(newKeyExpiry).toISOString() : null,
+      expiresAt: newKeyExpiry ? new Date(Date.now() + Number(newKeyExpiry) * 86400000).toISOString() : null,
       maxTokens: mt ? Number(mt) : null,
       maxRequests: !mt && mr ? Number(mr) : null,
       allowedModels: newKeyModel ? [newKeyModel] : [],
@@ -756,8 +777,8 @@ export default function APIPageClient({ machineId }) {
                         </span>
                       ) : null}
                       {key.expiresAt ? (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${new Date(key.expiresAt).getTime() < Date.now() ? "bg-red-500/10 text-red-500" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"}`}>
-                          exp {new Date(key.expiresAt).toLocaleDateString()}
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${now >= new Date(key.expiresAt).getTime() ? "bg-red-500/10 text-red-500" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"}`}>
+                          expires in {fmtCountdown(new Date(key.expiresAt).getTime() - now)}
                         </span>
                       ) : null}
                     </div>
@@ -816,14 +837,22 @@ export default function APIPageClient({ machineId }) {
             placeholder="Production Key"
           />
 
-          {/* Expiry */}
+          {/* Validity Period */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium">Expiry Date (optional)</label>
-            <Input
-              type="datetime-local"
+            <label className="text-xs font-medium">Validity Period</label>
+            <select
               value={newKeyExpiry}
               onChange={(e) => setNewKeyExpiry(e.target.value)}
-            />
+              className="w-full bg-bg border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Unlimited</option>
+              <option value="1">1 Day</option>
+              <option value="3">3 Days</option>
+              <option value="7">7 Days</option>
+              <option value="14">14 Days</option>
+              <option value="30">30 Days</option>
+              <option value="90">90 Days</option>
+            </select>
           </div>
 
           {/* Limits — mutually exclusive */}
