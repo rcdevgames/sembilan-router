@@ -18,6 +18,7 @@ import { handleComboChat, handleFusionChat } from "open-sse/services/combo.js";
 import { handleBypassRequest } from "open-sse/utils/bypassHandler.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { detectFormatByEndpoint } from "open-sse/translator/formats.js";
+import { getConsistentMachineId } from "@/shared/utils/machineId";
 import * as log from "../utils/logger.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { getProjectIdForConnection } from "open-sse/services/projectId.js";
@@ -62,19 +63,35 @@ export async function handleChat(request, clientRawRequest = null) {
   }
 
   // API key is mandatory for all /v1/* requests (toggle removed; always enforced)
-  if (!apiKey) {
+  // Internal CLI/self-test requests carry a signed machine token → bypass key check.
+  const cliToken = request.headers.get("x-9r-cli-token");
+  let cliTokenValid = false;
+  if (cliToken) {
+    try { cliTokenValid = cliToken === (await getConsistentMachineId("9r-cli-auth")); } catch {}
+  }
+  if (cliTokenValid) {
+    log.debug("AUTH", "Internal CLI token accepted — skipping API key check");
+  } else if (!apiKey) {
     log.warn("AUTH", "Missing API key");
     return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
+  } else {
+    const keyOk = await isValidApiKey(apiKey);
+    if (!keyOk) {
+      log.warn("AUTH", "Invalid API key");
+      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+    }
   }
-  const keyOk = await isValidApiKey(apiKey);
-  if (!keyOk) {
-    log.warn("AUTH", "Invalid API key");
-    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-  }
+
   // Settings still loaded below for combo strategies / bypass filters.
   const settings = await getSettings();
   // Quota / expiry / model checks (also handles inactive keys)
-  const keyAuth = await authorizeApiKey(apiKey, modelStr);
+  // Skip for CLI-authenticated internal requests (no key in DB)
+  let keyAuth;
+  if (cliTokenValid) {
+    keyAuth = { authorized: true, key: null };
+  } else {
+    keyAuth = await authorizeApiKey(apiKey, modelStr);
+  }
   if (!keyAuth.authorized) {
     log.warn("AUTH", `API key rejected: ${keyAuth.error}`);
     return errorResponse(keyAuth.statusCode || HTTP_STATUS.FORBIDDEN, keyAuth.error || "API key not allowed");

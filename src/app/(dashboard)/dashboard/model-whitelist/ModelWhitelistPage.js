@@ -285,8 +285,8 @@ export default function ModelWhitelistPage() {
                 : `Done \u2014 ${testState.passed} passed, ${testState.failed} failed`}
             </span>
             <span className="flex gap-3">
-              <span className="text-green-600 dark:text-green-400">\u2713 {testState.passed}</span>
-              <span className="text-red-500">\u2717 {testState.failed}</span>
+              <span className="text-green-600 dark:text-green-400">✓ {testState.passed}</span>
+              <span className="text-red-500">✗ {testState.failed}</span>
             </span>
           </div>
           {testing && testState.currentModel && (
@@ -305,7 +305,7 @@ export default function ModelWhitelistPage() {
               {testResults.map((r, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs px-2 py-1 rounded bg-black/[0.02] dark:bg-white/[0.02]">
                   <span className={r.ok ? "text-green-600 dark:text-green-400" : "text-red-500"}>
-                    {r.ok ? "\u2713" : "\u2717"}
+                    {r.ok ? "✓" : "✗"}
                   </span>
                   <span className="font-mono truncate flex-1">{r.model}</span>
                   {r.latencyMs != null && <span className="text-text-muted shrink-0">{r.latencyMs}ms</span>}

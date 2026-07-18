@@ -1,3 +1,8 @@
+import path from "path";
+import fs from "fs";
+import crypto from "crypto";
+import { DATA_DIR } from "@/lib/dataDir.js";
+
 let cachedApiKeySecret = null;
 function loadApiKeySecret() {
   if (cachedApiKeySecret) return cachedApiKeySecret;
