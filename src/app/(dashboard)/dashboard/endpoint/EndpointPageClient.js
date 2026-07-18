@@ -8,8 +8,9 @@ import {
   STATUS_POLL_FAST_MS,
   REACHABLE_MISS_THRESHOLD,
   CLIENT_PING_FAST_MS,
+  TUNNEL_PING_INTERVAL_MS,
+  TUNNEL_PING_MAX_MS,
 } from "./endpointConstants";
-import { clientPingUrl } from "./endpointPing";
 import EndpointRow from "./components/EndpointRow";
 import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
@@ -189,122 +190,6 @@ export default function APIPageClient({ machineId }) {
       console.log("Error fetching data:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // u2500u2500u2500 Cloudflare Tunnel handlers
-  // Ping tunnel health until reachable. Race multiple URLs (shortlink + direct) — 1 OK is enough.
-  const pingTunnelHealth = async (...urls) => {
-    setTunnelLoading(true);
-    setTunnelProgress("Waiting for tunnel ready...");
-    const targets = urls.filter(Boolean).map((u) => `${u}/api/health`);
-    const start = Date.now();
-    while (Date.now() - start < TUNNEL_PING_MAX_MS) {
-      await new Promise((r) => setTimeout(r, TUNNEL_PING_INTERVAL_MS));
-      const ok = await Promise.any(targets.map(async (h) => {
-        const p = await fetch(h, { mode: "cors", cache: "no-store" });
-        if (p.ok) return true;
-        throw new Error("not ready");
-      })).catch(() => false);
-      if (ok) {
-        setTunnelEnabled(true);
-        setTunnelLoading(false);
-        setTunnelProgress("");
-        return true;
-      }
-      // Every 5 pings (~10s), check if backend process still alive
-      if ((Date.now() - start) % 10000 < TUNNEL_PING_INTERVAL_MS) {
-        try {
-          const statusRes = await fetch("/api/tunnel/status");
-          if (statusRes.ok) {
-            const status = await statusRes.json();
-            if (!status.tunnel?.enabled) {
-              setTunnelStatus({ type: "error", message: "Tunnel process stopped unexpectedly." });
-              setTunnelLoading(false);
-              setTunnelProgress("");
-              return false;
-            }
-          }
-        } catch { /* ignore */ }
-      }
-    }
-    setTunnelStatus({ type: "error", message: "Tunnel created but not reachable. Please try again." });
-    setTunnelLoading(false);
-    setTunnelProgress("");
-    return false;
-  };
-
-  const handleEnableTunnel = async () => {
-    setShowEnableTunnelModal(false);
-    setTunnelLoading(true);
-    setTunnelStatus(null);
-    setTunnelProgress("Creating tunnel...");
-
-    // Poll download progress while enable request is pending
-    let polling = true;
-    const pollProgress = async () => {
-      while (polling) {
-        try {
-          const r = await fetch("/api/tunnel/status");
-          if (r.ok) {
-            const s = await r.json();
-            if (s.download?.downloading) {
-              setTunnelProgress(`Downloading cloudflared... ${s.download.progress}%`);
-            } else if (polling) {
-              setTunnelProgress("Creating tunnel...");
-            }
-          }
-        } catch { /* ignore */ }
-        await new Promise((r) => setTimeout(r, 1000));
-      }
-    };
-    pollProgress();
-
-    try {
-      const res = await fetch("/api/tunnel/enable", { method: "POST" });
-      polling = false;
-      const data = await res.json();
-      if (!res.ok) {
-        setTunnelStatus({ type: "error", message: data.error || "Failed to enable tunnel" });
-        return;
-      }
-
-      const url = data.tunnelUrl;
-      if (!url) {
-        setTunnelStatus({ type: "error", message: "No tunnel URL returned" });
-        return;
-      }
-
-      setTunnelUrl(url);
-      setTunnelPublicUrl(data.publicUrl || "");
-      await pingTunnelHealth(data.publicUrl, url);
-    } catch (error) {
-      setTunnelStatus({ type: "error", message: error.message });
-    } finally {
-      polling = false;
-      setTunnelLoading(false);
-      setTunnelProgress("");
-    }
-  };
-
-  const handleDisableTunnel = async () => {
-    setTunnelLoading(true);
-    setTunnelStatus(null);
-    try {
-      const res = await fetch("/api/tunnel/disable", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setTunnelEnabled(false);
-        setTunnelUrl("");
-        setShowDisableTunnelModal(false);
-        setTunnelStatus({ type: "success", message: "Tunnel disabled" });
-      } else {
-        setTunnelStatus({ type: "error", message: data.error || "Failed to disable tunnel" });
-      }
-    } catch (error) {
-      setTunnelStatus({ type: "error", message: error.message });
-    } finally {
-      setTunnelLoading(false);
     }
   };
 
@@ -766,7 +651,7 @@ export default function APIPageClient({ machineId }) {
         </div>
 
         {/* Pre-enable security gate banner */}
-        {isLoginUnsafe && !tunnelEnabled && !tsEnabled && (
+        {isLoginUnsafe && !tsEnabled && (
           <div className="mt-4">
             <SecurityWarning
               message={unsafeReason}
@@ -775,14 +660,14 @@ export default function APIPageClient({ machineId }) {
           </div>
         )}
 
-        {/* Security warnings when tunnel or tailscale is active */}
-        {(tunnelEnabled || tsEnabled) && (
+        {/* Security warnings when Tailscale is active */}
+        {tsEnabled && (
           <div className="mt-4 flex flex-col gap-2">
             {(!requireLogin || !hasPassword) && (
               <SecurityWarning
                 message={
                   !requireLogin
-                    ? "Require login is disabled — anyone can access your dashboard via tunnel."
+                    ? "Require login is disabled — anyone can access your dashboard via Tailscale."
                     : "Dashboard uses the default password — change it in Profile settings."
                 }
                 action={{
@@ -794,19 +679,6 @@ export default function APIPageClient({ machineId }) {
           </div>
         )}
 
-        {/* Tunnel dashboard access option */}
-        {(tunnelEnabled || tsEnabled) && (
-          <div className="mt-4 pt-4 border-t border-border flex items-center gap-3">
-            <Toggle
-              checked={tunnelDashboardAccess}
-              onChange={() => handleTunnelDashboardAccess(!tunnelDashboardAccess)}
-            />
-            <div className="flex items-center gap-1.5">
-              <p className="font-medium text-sm">Allow dashboard access via tunnel</p>
-              <Tooltip text="When enabled, the dashboard can be accessed through your tunnel or Tailscale URL (login still required). When disabled, dashboard access via tunnel/Tailscale is completely blocked." />
-            </div>
-          </div>
-        )}
       </Card>
 
       {/* API Keys */}
@@ -1052,67 +924,6 @@ export default function APIPageClient({ machineId }) {
           <Button onClick={() => setCreatedKey(null)} fullWidth>
             Done
           </Button>
-        </div>
-      </Modal>
-
-      {/* Enable Tunnel Modal */}
-      <Modal
-        isOpen={showEnableTunnelModal}
-        title="Enable Tunnel"
-        onClose={() => setShowEnableTunnelModal(false)}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="bg-surface-2 border border-border-subtle rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-primary">cloud_upload</span>
-              <div>
-                <p className="text-sm text-text-main font-medium mb-1">
-                  Cloudflare Tunnel
-                </p>
-                <p className="text-sm text-text-muted">
-                  Expose your local Sembilan Router to the internet. No port forwarding, no static IP needed. Share endpoint URL with your team or use it in Cursor, Cline, and other AI tools from anywhere.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {TUNNEL_BENEFITS.map((benefit) => (
-              <div key={benefit.title} className="flex flex-col items-center text-center p-3 rounded-lg bg-sidebar/50">
-                <span className="material-symbols-outlined text-xl text-primary mb-1">{benefit.icon}</span>
-                <p className="text-xs font-semibold">{benefit.title}</p>
-                <p className="text-xs text-text-muted">{benefit.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-xs text-text-muted">
-            Requires outbound port 7844 (TCP/UDP). Connection may take 10-30s.
-          </p>
-
-          <div className="flex gap-2">
-            <Button onClick={handleEnableTunnel} fullWidth>
-              Start Tunnel
-            </Button>
-            <Button onClick={() => setShowEnableTunnelModal(false)} variant="ghost" fullWidth>Cancel</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Disable Cloudflare Tunnel Modal */}
-      <Modal
-        isOpen={showDisableTunnelModal}
-        title="Disable Tunnel"
-        onClose={() => !tunnelLoading && setShowDisableTunnelModal(false)}
-      >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-text-muted">The Cloudflare tunnel will be disconnected. Remote access via tunnel URL will stop working.</p>
-          <div className="flex gap-2">
-            <Button onClick={handleDisableTunnel} fullWidth disabled={tunnelLoading} variant="danger">
-              {tunnelLoading ? "Disabling..." : "Disable"}
-            </Button>
-            <Button onClick={() => setShowDisableTunnelModal(false)} variant="ghost" fullWidth disabled={tunnelLoading}>Cancel</Button>
-          </div>
         </div>
       </Modal>
 
