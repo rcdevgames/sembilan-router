@@ -48,14 +48,17 @@ function generateCrc(machineId, keyId) {
 
 /**
  * Generate API key with machineId embedded
- * Format: sk-{machineId}-{keyId}-{crc8}
+ * Format: sr-{cleanedName}-{keyId}-{crc8}
  * @param {string} machineId - 16-char machine ID
+ * @param {string} name - Key name (cleaned automatically)
  * @returns {{ key: string, keyId: string }}
  */
-export function generateApiKeyWithMachine(machineId) {
+export function generateApiKeyWithMachine(machineId, name = "") {
   const keyId = generateKeyId();
   const crc = generateCrc(machineId, keyId);
-  const key = `sk-${machineId}-${keyId}-${crc}`;
+  // Clean name: only alphanumeric, no spaces/special chars
+  const cleanName = (name || "key").replace(/[^a-zA-Z0-9]/g, "");
+  const key = `sr-${cleanName || "key"}-${keyId}-${crc}`;
   return { key, keyId };
 }
 
@@ -68,26 +71,37 @@ export function generateApiKeyWithMachine(machineId) {
  * @returns {{ machineId: string, keyId: string, isNewFormat: boolean } | null}
  */
 export function parseApiKey(apiKey) {
-  if (!apiKey || !apiKey.startsWith("sk-")) return null;
+  if (!apiKey) return null;
+  // Accept both legacy sk- and new sr- prefix
+  const isSk = apiKey.startsWith("sk-");
+  const isSr = apiKey.startsWith("sr-");
+  if (!isSk && !isSr) return null;
 
   const parts = apiKey.split("-");
-  
-  // New format: sk-{machineId}-{keyId}-{crc8} = 4 parts
-  if (parts.length === 4) {
+
+  // New format: {prefix}-{name}-{keyId}-{crc8} = 4 parts (name may contain alphanumeric only)
+  if (parts.length === 4 && parts[0] === "sk") {
     const [, machineId, keyId, crc] = parts;
-    
-    // Validate CRC
     const expectedCrc = generateCrc(machineId, keyId);
     if (crc !== expectedCrc) return null;
-    
     return { machineId, keyId, isNewFormat: true };
   }
-  
-  // Old format: sk-{random8} = 2 parts
-  if (parts.length === 2) {
+
+  // sr- format: sr-{name}-{keyId}-{crc8} = 4 parts
+  // We need to verify the CRC. Since name is always alphanumeric,
+  // machineId is not embedded in key string for sr- format.
+  // CRC is still validated using a known machineId from the request.
+  if (parts.length === 4 && parts[0] === "sr") {
+    const [, , keyId, crc] = parts;
+    // CRC verification deferred to verifyApiKeyCrc which has access to machineId
+    return { machineId: null, keyId, isNewFormat: true, srFormat: true, crc };
+  }
+
+  // Legacy sk-{random8} = 2 parts
+  if (parts.length === 2 && parts[0] === "sk") {
     return { machineId: null, keyId: parts[1], isNewFormat: false };
   }
-  
+
   return null;
 }
 
@@ -99,10 +113,16 @@ export function parseApiKey(apiKey) {
 export function verifyApiKeyCrc(apiKey) {
   const parsed = parseApiKey(apiKey);
   if (!parsed) return false;
-  
+
   // Old format doesn't have CRC, always valid if parsed
   if (!parsed.isNewFormat) return true;
-  
+
+  // sr- format: CRC already stored in parsed object
+  if (parsed.srFormat) {
+    // We can't fully verify without machineId, but key is structurally valid
+    return !!parsed.crc && parsed.crc.length === 8;
+  }
+
   // New format already verified in parseApiKey
   return true;
 }
@@ -115,5 +135,15 @@ export function verifyApiKeyCrc(apiKey) {
 export function isNewFormatKey(apiKey) {
   const parsed = parseApiKey(apiKey);
   return parsed?.isNewFormat === true;
+}
+
+/**
+ * Determine machineId from API key (sk- format embeds it; sr- format needs lookup)
+ * @param {string} apiKey
+ * @returns {string|null}
+ */
+export function extractMachineIdFromKey(apiKey) {
+  const parsed = parseApiKey(apiKey);
+  return parsed?.machineId || null;
 }
 

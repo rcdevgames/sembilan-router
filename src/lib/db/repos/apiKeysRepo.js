@@ -44,7 +44,7 @@ export async function createApiKey(name, machineId, opts = {}) {
   if (!machineId) throw new Error("machineId is required");
   const db = await getAdapter();
   const { generateApiKeyWithMachine } = await import("@/shared/utils/apiKey");
-  const result = generateApiKeyWithMachine(machineId);
+  const result = generateApiKeyWithMachine(machineId, name);
   const now = new Date().toISOString();
   const allowedModels = Array.isArray(opts.allowedModels) ? opts.allowedModels : [];
   const apiKey = {
