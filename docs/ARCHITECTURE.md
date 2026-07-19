@@ -56,7 +56,7 @@ flowchart LR
         API[V1 Compatibility API\n/v1/*]
         DASH[Dashboard + Management API\n/api/*]
         CORE[SSE + Translation Core\nopen-sse + src/sse]
-        DB[(db.json)]
+        DB[(data.sqlite)]
         UDB[(usage.json + log.txt)]
     end
 
@@ -137,14 +137,17 @@ Main flow modules:
 
 Primary state DB:
 
-- `src/lib/localDb.js`
-- file: `${DATA_DIR}/db.json` (or `~/.sembilan-router/db.json` when `DATA_DIR` is unset)
+- `src/lib/db/index.js`
+- file: `${DATA_DIR}/data.sqlite` (or `~/.sembilan-router/data.sqlite` when `DATA_DIR` is unset)
+- driver chain: `bun:sqlite` → `better-sqlite3` → `node:sqlite` → `sql.js` (WASM fallback)
 - entities: providerConnections, providerNodes, modelAliases, combos, apiKeys, settings, pricing
+- migrations: `src/lib/db/migrations/`
+- repositories: `src/lib/db/repos/`
 
 Usage DB:
 
 - `src/lib/usageDb.js`
-- files: `~/.sembilan-router/usage.json`, `~/.sembilan-router/log.txt`
+- file: `~/.sembilan-router/usage.sqlite`
 - note: currently independent from `DATA_DIR`
 
 ## 4) Auth + Security Surfaces

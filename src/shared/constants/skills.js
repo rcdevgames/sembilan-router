@@ -24,49 +24,7 @@ export const SKILLS = [
     description: "Chat / code-gen via OpenAI or Anthropic format with streaming.",
     endpoint: "/v1/chat/completions",
     icon: "chat",
-  },
-  {
-    id: "sembilan-router-image",
-    name: "Image Generation",
-    description: "Text-to-image via DALL-E, Imagen, FLUX, MiniMax, SDWebUI…",
-    endpoint: "/v1/images/generations",
-    icon: "image",
-  },
-  {
-    id: "sembilan-router-tts",
-    name: "Text-to-Speech",
-    description: "OpenAI / ElevenLabs / Edge / Google / Deepgram voices.",
-    endpoint: "/v1/audio/speech",
-    icon: "record_voice_over",
-  },
-  {
-    id: "sembilan-router-stt",
-    name: "Speech-to-Text",
-    description: "Transcribe audio via OpenAI Whisper, Groq, Gemini, Deepgram, AssemblyAI…",
-    endpoint: "/v1/audio/transcriptions",
-    icon: "mic",
-  },
-  {
-    id: "sembilan-router-embeddings",
-    name: "Embeddings",
-    description: "Vectors for RAG / semantic search via OpenAI, Gemini, Mistral…",
-    endpoint: "/v1/embeddings",
-    icon: "scatter_plot",
-  },
-  {
-    id: "sembilan-router-web-search",
-    name: "Web Search",
-    description: "Tavily / Exa / Brave / Serper / SearXNG / Google PSE / You.com.",
-    endpoint: "/v1/search",
-    icon: "search",
-  },
-  {
-    id: "sembilan-router-web-fetch",
-    name: "Web Fetch",
-    description: "URL → markdown / text / HTML via Firecrawl, Jina, Tavily, Exa.",
-    endpoint: "/v1/web/fetch",
-    icon: "language",
-  },
+  }
 ];
 
 export function getSkillRawUrl(id) {

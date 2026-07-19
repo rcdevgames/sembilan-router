@@ -76,37 +76,6 @@ function showMenu(title, items, footer) {
 }
 
 /**
- * Display data in table format
- * @param {string[]} headers - Array of column headers
- * @param {Array<Array<string|number>>} rows - Array of row data
- */
-function showTable(headers, rows) {
-  if (!headers.length || !rows.length) {
-    return;
-  }
-
-  // Calculate column widths
-  const colWidths = headers.map((header, i) => {
-    const maxDataWidth = Math.max(...rows.map(row => String(row[i] || "").length));
-    return Math.max(header.length, maxDataWidth);
-  });
-
-  // Print header
-  const headerRow = headers.map((h, i) => h.padEnd(colWidths[i])).join(" │ ");
-  console.log(COLORS.bold + headerRow + COLORS.reset);
-
-  // Print separator
-  const separator = colWidths.map(w => "─".repeat(w)).join("─┼─");
-  console.log(COLORS.dim + separator + COLORS.reset);
-
-  // Print rows
-  rows.forEach(row => {
-    const rowStr = row.map((cell, i) => String(cell || "").padEnd(colWidths[i])).join(" │ ");
-    console.log(rowStr);
-  });
-}
-
-/**
  * Show colored status message
  * @param {string} message - Message to display
  * @param {string} [type="info"] - Status type: success, error, warning, info
@@ -149,7 +118,6 @@ function showHeader(title, subtitle) {
 module.exports = {
   showBox,
   showMenu,
-  showTable,
   showStatus,
   clearScreen,
   showHeader

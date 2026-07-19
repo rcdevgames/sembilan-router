@@ -13,10 +13,17 @@ const proxyClientMaxBodySize = process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE
 // beforeFiles rewrites send matching paths to /api/_disabled (404 JSON), before
 // any media route handler runs. Empty MEDIA_DISABLED_KINDS to restore them.
 const MEDIA_DISABLED_KINDS = ["images", "videos", "audio", "embeddings", "search", "web"];
+// Block media dashboard pages too
+const DASHBOARD_MEDIA_PAGES = ["media-providers"];
 const mediaDisabledRewrites = MEDIA_DISABLED_KINDS.flatMap((k) => [
   { source: `/v1/${k}/:path*`, destination: "/api/_disabled" },
-  { source: `/api/v1/${k}/:path*`, destination: "/api/_disabled" },
+  { source: `/api/v1/${k}/:path*`, destination: "/api/_disabled" }
 ]);
+const dashboardMediaRewrites = DASHBOARD_MEDIA_PAGES.flatMap((p) => [
+  { source: `/${p}/:path*`, destination: "/api/_disabled" },
+  { source: `/dashboard/${p}/:path*`, destination: "/api/_disabled" }
+]);
+const allRewrites = [...mediaDisabledRewrites, ...dashboardMediaRewrites];
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -61,7 +68,7 @@ const nextConfig = {
   },
   async rewrites() {
     return {
-      beforeFiles: mediaDisabledRewrites,
+      beforeFiles: allRewrites,
       afterFiles: [
         {
           source: "/v1/v1/:path*",
