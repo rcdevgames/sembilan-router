@@ -87,7 +87,6 @@ export default function UserUsagePageClient() {
   // --- DASHBOARD ---
   const { key, usage, history, endpoint } = data;
   const tokenPct = key.maxTokens ? Math.round((usage.totalTokens / key.maxTokens) * 100) : null;
-  const reqPct = key.maxRequests ? Math.round((usage.totalRequests / key.maxRequests) * 100) : null;
 
   return (
     <div className="min-h-screen bg-bg p-4 relative overflow-hidden">
@@ -131,11 +130,13 @@ export default function UserUsagePageClient() {
 
           {/* Quota Section */}
           <Section title="Quota">
-            <div className="grid grid-cols-2 gap-4">
-              <QuotaBar label="Tokens" used={usage.totalTokens} max={key.maxTokens} pct={tokenPct} />
-              <QuotaBar label="Requests" used={usage.totalRequests} max={key.maxRequests} pct={reqPct} />
-            </div>
-            {!key.maxTokens && !key.maxRequests && <p className="text-text-muted text-xs mt-2">No quota limit set.</p>}
+            {key.maxTokens ? (
+              <QuotaBar label="Tokens" used={usage.totalTokens} max={key.maxTokens} />
+            ) : key.maxRequests ? (
+              <QuotaBar label="Requests" used={usage.totalRequests} max={key.maxRequests} />
+            ) : (
+              <p className="text-text-muted text-xs">No quota limit set.</p>
+            )}
           </Section>
 
           <Divider />
@@ -211,7 +212,7 @@ function InfoRow({ label, value, onCopy, copied, mono }) {
   );
 }
 
-function QuotaBar({ label, used, max, pct }) {
+function QuotaBar({ label, used, max }) {
   if (!max) return (
     <div>
       <p className="text-xs text-text-muted mb-1">{label}</p>
@@ -219,6 +220,7 @@ function QuotaBar({ label, used, max, pct }) {
     </div>
   );
   const remaining = Math.max(0, max - used);
+  const pct = Math.round((used / max) * 100);
   return (
     <div>
       <div className="flex justify-between text-xs mb-1">
