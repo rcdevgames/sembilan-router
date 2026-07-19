@@ -35,7 +35,7 @@ const nextConfig = {
   },
   outputFileTracingRoot: tracingRoot,
   outputFileTracingExcludes: {
-    "*": ["./gitbook/**/*"]
+    "*": ["./gitbook/**/*", "./tests/**/*", "./docs/**/*", "./.git/**/*"]
   },
   images: {
     unoptimized: true
@@ -45,9 +45,9 @@ const nextConfig = {
     // #1529/#1572: LLM clients can send long context or base64 image payloads through /v1 rewrites.
     proxyClientMaxBodySize,
     // Cache fetch responses across HMR refreshes for faster dev reloads.
-    serverComponentsHmrCache: true,
+    // serverComponentsHmrCache: true,
     // Tree-shake heavy barrel imports to cut compile + bundle size
-    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "material-symbols", "marked"],
+    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "material-symbols", "marked", "recharts", "@monaco-editor/react", "monaco-editor"],
   },
   webpack: (config, { isServer }) => {
     // Ignore fs/path modules in browser bundle
@@ -63,6 +63,13 @@ const nextConfig = {
       ...config.watchOptions,
       aggregateTimeout: 300,
       ignored: /[\\/](node_modules|\.git|logs|\.next|\.next-cli-build|gitbook|cli|open-sse\.old|tests|docs)[\\/]/,
+    };
+    // Enable persistent cache for faster builds
+    config.cache = {
+      type: 'filesystem',
+      buildDependencies: {
+        config: [__filename],
+      },
     };
     return config;
   },
