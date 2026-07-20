@@ -1,7 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const projectRoot = dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const projectRoot = dirname(__filename);
 // CLI bundling needs workspace root so tracing includes hoisted node_modules (slim ~50MB).
 // Docker / default uses projectRoot so server.js lands at /app/server.js (not nested).
 const tracingRoot = process.env.NEXT_TRACING_ROOT_MODE === "workspace"

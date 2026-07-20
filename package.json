@@ -1,6 +1,6 @@
 {
   "name": "sembilan-router-app",
-  "version": "0.5.35-rc.8",
+  "version": "0.5.35-rc.9",
   "description": "Sembilan Router web dashboard",
   "private": true,
   "scripts": {
